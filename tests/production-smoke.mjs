@@ -62,9 +62,9 @@ try {
   assert.equal(payload.placement, "discover-banner");
   assert.ok(Array.isArray(payload.items) && payload.items.length > 0);
 
-  const imageResponse = await fetch(`${origin}/xiaobao-avatar.png`);
+  const imageResponse = await fetch(`${origin}/ip/xiaoyuan-avatar.webp`);
   assert.equal(imageResponse.status, 200);
-  assert.match(imageResponse.headers.get("content-type") ?? "", /^image\/png\b/i);
+  assert.match(imageResponse.headers.get("content-type") ?? "", /^image\/webp\b/i);
 
   console.log(`Production smoke test passed at ${origin}`);
 } finally {

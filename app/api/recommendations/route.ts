@@ -15,7 +15,7 @@ const discoverBanners = [
     subtitle: "自选与持仓重点变化一屏掌握",
     action: "查看日报",
     tone: "red",
-    image: "/xiaobao-avatar.png",
+    image: "/ip/xiaoyuan-daily.webp",
   },
   {
     id: "strategy",

@@ -1,14 +1,23 @@
 "use client";
 
 import { FormEvent, TouchEvent, useEffect, useRef, useState } from "react";
+import {
+  Activity, ArrowLeft, ArrowLeftRight, ArrowUp, BarChart3, Bell, Bot, BriefcaseBusiness, Building2,
+  CalendarDays, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, CirclePlus,
+  FileChartColumn, FileText, Grid2X2, Headphones, Home as HomeIcon, Landmark,
+  Menu, MessageCircleMore, Mic, MoreHorizontal, Plus, Search, Send, Sparkles,
+  Stethoscope, TrendingUp, UserRound, Volume2, VolumeX, WalletCards, X,
+} from "lucide-react";
 
 type Tab = "discover" | "watch" | "select";
 type SelectTab = "hot" | "shape" | "strategy";
 type ClassicView = "home" | "quotes" | "market" | "trade" | "wealth" | "profile";
 type ReasoningMode = "smart" | "fast" | "deep" | "classic";
 type FunctionPageId = "condition-order" | "bank-transfer" | "open-account" | "reverse-repo";
-type StandalonePage = "search" | "daily-report" | FunctionPageId | null;
+type StandalonePage = "search" | "daily-report" | "hot-topics" | "shape-ranking" | "shape-result" | "strategy-builder" | "strategy-results" | "financial-assistant" | FunctionPageId | null;
 type StockInfo = { name: string; code: string; price: string; change: string; delta: string; market?: string };
+type AnalysisContext = { title: string; summary: string; points: string[]; meta?: string };
+type ConversationMode = "classic" | "ai";
 type ArticleInfo = {
   id: string;
   kind: "资讯" | "公告" | "研报";
@@ -19,6 +28,7 @@ type ArticleInfo = {
   points: string[];
   conclusion: string;
   analysis: string[];
+  followUps?: string[];
 };
 
 const topTabs: { id: Tab; label: string }[] = [
@@ -33,28 +43,41 @@ const sceneLabels: Record<Tab, string> = {
   select: "AI切换版 · 选股模块",
 };
 
+const ipAssets = {
+  avatar: "/ip/xiaoyuan-avatar.webp",
+  welcome: "/ip/xiaoyuan-welcome.webp",
+  daily: "/ip/xiaoyuan-daily.webp",
+  market: "/ip/xiaoyuan-market.webp",
+  selection: "/ip/xiaoyuan-selection.webp",
+  loading: "/ip/xiaoyuan-loading.webp",
+  floating: "/ip/xiaoyuan-floating.webp",
+  report: "/ip/xiaoyuan-report.webp",
+} as const;
+
 const quickLinkSections = [
   {
     title: "",
     links: [
-      { icon: "＃", tone: "yellow", title: "我的收藏", description: "收藏的问句都在这" },
-      { icon: "◡", tone: "blue", title: "人工客服", description: "有问题找专属客服" },
+      { icon: Sparkles, tone: "yellow", title: "我的收藏", description: "收藏的问句都在这" },
+      { icon: Headphones, tone: "blue", title: "人工客服", description: "有问题找专属客服" },
     ],
   },
   {
     title: "帮你看盘",
     links: [
-      { icon: "⌁", tone: "blue", title: "个股分析", description: "五大维度为你诊股" },
-      { icon: "↗", tone: "blue", title: "大盘分析", description: "明星投顾独家解读" },
-      { icon: "∿", tone: "red", title: "行业分析", description: "行业趋势专业分析" },
-      { icon: "↗", tone: "orange", title: "账户分析", description: "全方位资产分析" },
+      { icon: ChartNoAxesCombined, tone: "blue", title: "个股分析", description: "五大维度为你诊股" },
+      { icon: TrendingUp, tone: "blue", title: "大盘分析", description: "明星投顾独家解读" },
+      { icon: Activity, tone: "red", title: "行业分析", description: "行业趋势专业分析" },
+      { icon: WalletCards, tone: "orange", title: "账户分析", description: "全方位资产分析" },
     ],
   },
   {
     title: "帮你选股",
     links: [
-      { icon: "★", tone: "orange", title: "概念选股", description: "概念相关股票筛选" },
-      { icon: "▼", tone: "blue", title: "行业选股", description: "行业相关股票筛选" },
+      { icon: Sparkles, tone: "orange", title: "概念选股", description: "概念相关股票筛选" },
+      { icon: Building2, tone: "blue", title: "行业选股", description: "行业相关股票筛选" },
+      { icon: TrendingUp, tone: "red", title: "股票热点题材", description: "AI梳理热点与相关标的" },
+      { icon: FileChartColumn, tone: "orange", title: "财报助手", description: "关键指标与财报问答" },
     ],
   },
 ] as const;
@@ -73,6 +96,11 @@ const stockCatalog: Record<string, StockInfo> = {
   "002230": { name: "科大讯飞", code: "002230", price: "52.08", change: "+8.7%", delta: "4.16" },
   "300456": { name: "赛微电子", code: "300456", price: "31.26", change: "+140.52%", delta: "18.26" },
   "301232": { name: "飞沃科技", code: "301232", price: "88.40", change: "+151.92%", delta: "53.31" },
+  "300975": { name: "商络电子", code: "300975", price: "31.86", change: "-4.87%", delta: "-1.63" },
+  "603019": { name: "中科曙光", code: "603019", price: "76.24", change: "+4.18%", delta: "3.05" },
+  "688256": { name: "寒武纪", code: "688256", price: "682.50", change: "+3.62%", delta: "23.85" },
+  "002371": { name: "北方华创", code: "002371", price: "426.30", change: "+2.31%", delta: "9.63" },
+  "603986": { name: "兆易创新", code: "603986", price: "128.66", change: "+5.16%", delta: "6.31" },
 };
 
 const initialWatchlist = ["601375", "600000", "300033", "300331"];
@@ -88,6 +116,7 @@ const articleCatalog: ArticleInfo[] = [
     points: ["沪指上涨0.47%，两市成交保持活跃。", "能源与避险资产获得资金集中关注。", "AI应用方向分化，后续仍需观察量能承接。"],
     conclusion: "地缘事件与能源价格变化推动资金重新定价，能源、贵金属和高股息方向短期占优。",
     analysis: ["事件触发：海外风险升温抬高原油和黄金的风险溢价。", "产业传导：上游资源品盈利预期改善，航运和化工成本端承压。", "市场映射：资金偏好由高弹性题材转向业绩确定性与防御资产。"],
+    followUps: ["能源板块还能持续多久？", "哪些行业受油价上涨影响？", "当前资金在关注什么？"],
   },
   {
     id: "moutai-announcement",
@@ -111,6 +140,30 @@ const articleCatalog: ArticleInfo[] = [
     conclusion: "行业从普遍扩张转向结构分化，具备品牌壁垒和渠道掌控力的龙头更具确定性。",
     analysis: ["需求侧：宴席与商务场景逐步修复，但价格带表现分化。", "供给侧：酒企主动控货稳价，渠道利润有望改善。", "投资线索：关注高端龙头、区域强势品牌与高股息标的。"],
   },
+  {
+    id: "opec-output",
+    kind: "资讯",
+    title: "八个欧佩克+国家就提高石油日产量达成原则性协议",
+    source: "财联社快讯",
+    time: "18:40",
+    lead: "据报道，相关产油国正在讨论将石油日产量上调，供应预期变化带动国际油价波动。",
+    points: ["增产规模仍需等待正式会议确认。", "供应增加预期短期压制油价风险溢价。", "油服、化工、航运等板块可能出现分化。"],
+    conclusion: "增产预期将影响原油供需定价，但地缘风险仍可能放大价格波动，需结合正式协议与后续执行节奏判断。",
+    analysis: ["供应端：新增产量可能缓解阶段性供给紧张。", "行业端：上游盈利预期和下游成本改善方向分化。", "市场端：能源股表现将更依赖油价与资金风险偏好。"],
+    followUps: ["增产对A股哪些行业有影响？", "油价接下来怎么看？", "有哪些相关上市公司？"],
+  },
+  {
+    id: "geopolitical-risk",
+    kind: "资讯",
+    title: "地缘事件扰动全球风险偏好，能源与避险资产受关注",
+    source: "市场快讯",
+    time: "18:38",
+    lead: "相关事件持续影响全球市场风险偏好，能源、黄金和高股息方向获得更多关注。",
+    points: ["避险情绪短期升温。", "原油与黄金价格波动加大。", "A股资金偏好可能向防御方向切换。"],
+    conclusion: "事件本身仍有不确定性，短期重点观察油价、黄金和北向资金变化，不宜仅凭单一消息追涨。",
+    analysis: ["风险偏好：高估值成长板块波动可能放大。", "资产映射：能源、黄金与军工更受关注。", "验证指标：持续跟踪官方信息和商品价格。"],
+    followUps: ["地缘风险如何影响A股？", "哪些避险板块值得关注？", "市场情绪会持续多久？"],
+  },
 ];
 
 function matchFunctionIntent(text: string): FunctionPageId | null {
@@ -122,7 +175,7 @@ function matchFunctionIntent(text: string): FunctionPageId | null {
 }
 
 function Mascot() {
-  return <div className="mascot"><img src="/xiaobao-avatar.png" alt="小宝IP形象" /></div>;
+  return <div className="mascot"><img src={ipAssets.avatar} alt="小原AI助手形象" /></div>;
 }
 
 function MiniLine({ down = false }: { down?: boolean }) {
@@ -146,20 +199,26 @@ export default function Home() {
   const [contextAssistantOpen, setContextAssistantOpen] = useState(false);
   const [contextQuestion, setContextQuestion] = useState("");
   const [classicChatOpen, setClassicChatOpen] = useState(false);
-  const [watchInsight, setWatchInsight] = useState("");
   const [standalonePage, setStandalonePage] = useState<StandalonePage>(null);
   const [selectedStock, setSelectedStock] = useState<StockInfo | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<ArticleInfo | null>(null);
+  const [articleConversationMode, setArticleConversationMode] = useState<ConversationMode>("ai");
+  const [conversationContext, setConversationContext] = useState<AnalysisContext | null>(null);
+  const [selectedHotTopic, setSelectedHotTopic] = useState("算力基建");
+  const [selectedShape, setSelectedShape] = useState("攻击迫线");
+  const [shapeResultBack, setShapeResultBack] = useState<"ranking" | "select">("select");
+  const [strategyResultBack, setStrategyResultBack] = useState<"builder" | "select">("builder");
+  const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
   const [watchlist, setWatchlist] = useState(initialWatchlist);
   const [watchlistLoaded, setWatchlistLoaded] = useState(false);
   const [functionBackToSearch, setFunctionBackToSearch] = useState(false);
   const [toastAction, setToastAction] = useState<(() => void) | null>(null);
 
-  const reasoningModes: { id: ReasoningMode; label: string; description: string }[] = [
-    { id: "smart", label: "智能调度", description: "根据会话任务，智能调度模型" },
-    { id: "fast", label: "快速推理", description: "简单推理，快速响应" },
-    { id: "deep", label: "深度思考", description: "多步规划，深度推理" },
-    { id: "classic", label: "传统引擎", description: "传统对话引擎，快捷式诊选股" },
+  const reasoningModes: { id: ReasoningMode; label: string; description: string; icon: typeof Sparkles }[] = [
+    { id: "smart", label: "智能调度", description: "根据会话任务，智能调度模型", icon: Sparkles },
+    { id: "fast", label: "快速推理", description: "简单推理，快速响应", icon: Activity },
+    { id: "deep", label: "深度思考", description: "多步规划，深度推理", icon: Bot },
+    { id: "classic", label: "传统引擎", description: "传统对话引擎，快捷式诊选股", icon: Grid2X2 },
   ];
 
   useEffect(() => {
@@ -193,12 +252,13 @@ export default function Home() {
     window.setTimeout(() => { setToast(""); setToastAction(null); }, action ? 3200 : 1800);
   }
 
-  function ask(text: string) {
+  function ask(text: string, context?: AnalysisContext | null) {
     const functionIntent = matchFunctionIntent(text);
     if (functionIntent && /打开|进入|办理|怎么|如何/.test(text)) {
       openFunction(functionIntent);
       return;
     }
+    if (context !== undefined) setConversationContext(context);
     setQuery(text);
     if (text.includes("压力位")) {
       setReply("上证指数短线压力位可重点观察 4200 点附近。该结论基于近期高点与成交密集区，仅供参考。");
@@ -208,8 +268,10 @@ export default function Home() {
       setReply("当前资金主要流向人工智能、机器人与高股息方向，板块内部仍存在明显分化。");
     } else if (text.includes("公告") || text.includes("贵州茅台")) {
       setReply("已延续刚才的公告查询。贵州茅台近期重要信息集中在经营数据、现金分红安排与股东大会决议，短期未见改变核心经营逻辑的重大风险事项。");
+    } else if (context ?? conversationContext) {
+      setReply(`基于上方已有分析继续回答：${text}。当前结论仍需结合最新公告、成交和行业数据持续验证。`);
     } else {
-      setReply("已为你整理相关数据与核心结论。你可以继续追问，或点击卡片进入对应功能页面。");
+      setReply("我已根据你的问题完成梳理，下面给出当前可用于演示的核心结论与关联数据。");
     }
   }
 
@@ -225,21 +287,23 @@ export default function Home() {
     setSelectedArticle(null);
     setAiUtilityView(null);
     setContextAssistantOpen(false);
-    setWatchInsight("");
     setTab(next);
     setReply("");
     setQuery("");
+    setConversationContext(null);
   }
 
   function openStock(code: string) {
-    setStandalonePage(null);
     setSelectedArticle(null);
     setSelectedStock(stockCatalog[code] ?? stockCatalog["300442"]);
   }
 
-  function openArticle(id: string) {
+  function openArticle(id: string, mode: ConversationMode = classic ? "classic" : "ai") {
     const article = articleCatalog.find(item => item.id === id);
-    if (article) setSelectedArticle(article);
+    if (article) {
+      setArticleConversationMode(mode);
+      setSelectedArticle(article);
+    }
   }
 
   function openFunction(id: FunctionPageId, backToSearch = false) {
@@ -268,25 +332,33 @@ export default function Home() {
     else flash(`${stock.name}已添加自选 · 去查看`, openWatchlist);
   }
 
-  function openAiStockSelection() {
-    const prompt = "帮我自定义选股：近三年ROE超过15%，现金流稳定，并关注近期资金流入";
-    setClassic(false);
+  function openConversation(mode: ConversationMode, question: string, context: AnalysisContext | null = null) {
     setStandalonePage(null);
     setSelectedStock(null);
     setSelectedArticle(null);
     setAiUtilityView(null);
-    setTab("discover");
-    ask(prompt);
+    setConversationContext(context);
+    if (mode === "classic") {
+      setClassic(true);
+      setClassicChatOpen(true);
+    } else {
+      setClassic(false);
+      setClassicChatOpen(false);
+      setTab("discover");
+    }
+    ask(question, context);
   }
 
-  function continueSearchConversation(question: string) {
-    setStandalonePage(null);
-    setSelectedStock(null);
-    setSelectedArticle(null);
-    setClassic(false);
-    setAiUtilityView(null);
-    setTab("discover");
-    ask(question);
+  function openShapeResult(shape: string, back: "ranking" | "select") {
+    setSelectedShape(shape);
+    setShapeResultBack(back);
+    setStandalonePage("shape-result");
+  }
+
+  function openStrategyResults(indicators: string[], back: "builder" | "select") {
+    setSelectedIndicators(indicators);
+    setStrategyResultBack(back);
+    setStandalonePage("strategy-results");
   }
 
   const phoneTitle = selectedArticle
@@ -294,11 +366,11 @@ export default function Home() {
     : selectedStock
     ? `个股行情 · ${selectedStock.name}`
     : standalonePage
-      ? { search: "全局搜索", "condition-order": "条件单", "daily-report": "AI日报", "bank-transfer": "银证转账", "open-account": "在线开户", "reverse-repo": "国债逆回购" }[standalonePage]
+      ? { search: "全局搜索", "condition-order": "条件单", "daily-report": "AI日报", "bank-transfer": "银证转账", "open-account": "在线开户", "reverse-repo": "国债逆回购", "hot-topics": "股票热点题材", "shape-ranking": "形态选股热榜", "shape-result": "形态选股结果", "strategy-builder": "策略选股", "strategy-results": "选股结果", "financial-assistant": "财报助手" }[standalonePage]
       : classic
         ? `经典版 · ${{home:"首页",quotes:"行情-自选",market:"行情-行情",trade:"交易",wealth:"理财",profile:"我的"}[classicView]}`
         : aiUtilityView
-          ? `AI版 · ${{home:"小宝",quotes:"行情",market:"行情",trade:"交易",wealth:"理财",profile:"我的"}[aiUtilityView]}`
+          ? `AI版 · ${{home:"小原AI助手",quotes:"行情",market:"行情",trade:"交易",wealth:"理财",profile:"我的"}[aiUtilityView]}`
           : sceneLabels[tab];
 
   return (
@@ -314,7 +386,7 @@ export default function Home() {
               <span>0{index + 1}</span><div><b>{item.label}</b><small>{sceneLabels[item.id]}</small></div><i>›</i>
             </button>
           ))}
-          <button className={classic ? "active" : ""} onClick={() => { setClassic(true); setClassicView("home"); setClassicChatOpen(false); setAiUtilityView(null); setStandalonePage(null); setSelectedStock(null); setReply(""); }}>
+          <button className={classic ? "active" : ""} onClick={() => { setClassic(true); setClassicView("home"); setClassicChatOpen(false); setAiUtilityView(null); setStandalonePage(null); setSelectedStock(null); setSelectedArticle(null); setConversationContext(null); setReply(""); }}>
             <span>04</span><div><b>经典版联动</b><small>自选场景 · AI浮窗入口</small></div><i>›</i>
           </button>
         </div>
@@ -327,21 +399,33 @@ export default function Home() {
           <div className="status"><b>{classic ? "20:41" : "9:03"}</b><span>▮▮▮ {classic ? "5G" : "4G"}　▰</span></div>
 
           {selectedArticle ? (
-            <ArticleDetailPage article={selectedArticle} onBack={() => setSelectedArticle(null)} onContinue={(question) => { setSelectedArticle(null); continueSearchConversation(question); }} />
+            <ArticleDetailPage article={selectedArticle} onBack={() => setSelectedArticle(null)} onContinue={(question) => openConversation(articleConversationMode, question)} />
           ) : selectedStock ? (
             <StockDetailPage stock={selectedStock} added={watchlist.includes(selectedStock.code)} onBack={() => setSelectedStock(null)} onToggle={() => toggleStock(selectedStock.code)} onOpenArticle={openArticle} flash={flash} />
           ) : standalonePage === "daily-report" ? (
             <DailyReportPage watchlistCount={watchlist.length} onBack={() => setStandalonePage(null)} />
           ) : standalonePage === "search" ? (
-            <GlobalSearchPage onBack={() => setStandalonePage(null)} onOpenFunction={(id) => openFunction(id, true)} onContinue={continueSearchConversation} onOpenStock={openStock} onToggleStock={toggleStock} onOpenArticle={openArticle} isAdded={(code) => watchlist.includes(code)} />
+            <GlobalSearchPage onBack={() => setStandalonePage(null)} onOpenFunction={(id) => openFunction(id, true)} onContinue={(question, context) => openConversation("classic", question, context)} onOpenStock={openStock} onToggleStock={toggleStock} onOpenArticle={(id) => openArticle(id, "classic")} isAdded={(code) => watchlist.includes(code)} />
+          ) : standalonePage === "financial-assistant" ? (
+            <FinancialAssistantPage onBack={() => setStandalonePage(null)} />
+          ) : standalonePage === "hot-topics" ? (
+            <HotTopicsPage active={selectedHotTopic} onActive={setSelectedHotTopic} onBack={() => setStandalonePage(null)} onOpenStock={openStock} onToggleStock={toggleStock} isAdded={(code) => watchlist.includes(code)} />
+          ) : standalonePage === "shape-ranking" ? (
+            <ShapeRankingPage onBack={() => setStandalonePage(null)} onOpen={(shape) => openShapeResult(shape, "ranking")} />
+          ) : standalonePage === "shape-result" ? (
+            <ShapeResultPage shape={selectedShape} onBack={() => setStandalonePage(shapeResultBack === "ranking" ? "shape-ranking" : null)} onOpenStock={openStock} />
+          ) : standalonePage === "strategy-builder" ? (
+            <StrategyBuilderPage selected={selectedIndicators} onSelected={setSelectedIndicators} onBack={() => setStandalonePage(null)} onResults={() => openStrategyResults(selectedIndicators, "builder")} />
+          ) : standalonePage === "strategy-results" ? (
+            <StrategyResultsPage selected={selectedIndicators} onBack={() => setStandalonePage(strategyResultBack === "builder" ? "strategy-builder" : null)} onOpenStock={openStock} onToggleStock={toggleStock} isAdded={(code) => watchlist.includes(code)} />
           ) : standalonePage === "condition-order" ? (
             <ConditionOrderPage onBack={() => setStandalonePage(functionBackToSearch ? "search" : null)} flash={flash} />
           ) : standalonePage ? (
             <NativeFunctionPage id={standalonePage} onBack={() => setStandalonePage(functionBackToSearch ? "search" : null)} flash={flash} />
           ) : classic ? (
             classicChatOpen
-              ? <ClassicChatPage reply={reply} question={query} onAsk={ask} onClose={() => setClassicChatOpen(false)} />
-              : <ClassicScreen view={classicView} onView={setClassicView} onBack={() => setClassic(false)} onAssistant={() => setClassicChatOpen(true)} flash={flash} onSearch={() => setStandalonePage("search")} onDailyReport={() => setStandalonePage("daily-report")} onOpenStock={openStock} onToggleStock={toggleStock} watchlist={watchlist} />
+              ? <ClassicChatPage reply={reply} question={query} context={conversationContext} onAsk={ask} onClose={() => setClassicChatOpen(false)} />
+              : <ClassicScreen view={classicView} onView={setClassicView} onBack={() => setClassic(false)} onAssistant={() => setClassicChatOpen(true)} flash={flash} onSearch={() => setStandalonePage("search")} onDailyReport={() => setStandalonePage("daily-report")} onHotTopics={() => setStandalonePage("hot-topics")} onFinancialAssistant={() => setStandalonePage("financial-assistant")} onOpenStock={openStock} onToggleStock={toggleStock} watchlist={watchlist} />
           ) : aiUtilityView ? (
             <>
               <ClassicScreen
@@ -353,6 +437,8 @@ export default function Home() {
                 flash={flash}
                 onSearch={() => setStandalonePage("search")}
                 onDailyReport={() => setStandalonePage("daily-report")}
+                onHotTopics={() => setStandalonePage("hot-topics")}
+                onFinancialAssistant={() => setStandalonePage("financial-assistant")}
                 onOpenStock={openStock}
                 onToggleStock={toggleStock}
                 watchlist={watchlist}
@@ -363,38 +449,37 @@ export default function Home() {
                 onQuestion={(text) => { const intent = matchFunctionIntent(text); if (intent && text.startsWith("打开")) { setContextAssistantOpen(false); openFunction(intent); } else setContextQuestion(text); }}
                 onClose={() => { setContextAssistantOpen(false); setContextQuestion(""); }}
                 onInteract={flash}
-                onEscalate={(text) => { setContextAssistantOpen(false); setContextQuestion(""); setAiUtilityView(null); setTab("discover"); ask(text); }}
+                onEscalate={(text, context) => { setContextAssistantOpen(false); setContextQuestion(""); openConversation("ai", text, context); }}
               />}
             </>
           ) : (
             <>
               <header className="ai-header">
-                <button className="classic-switch" onClick={() => { setClassic(true); setClassicView("home"); setClassicChatOpen(false); setAiUtilityView(null); setStandalonePage(null); setSelectedStock(null); }}>⇆ 经典版</button>
+                <button className="classic-switch" onClick={() => { setClassic(true); setClassicView("home"); setClassicChatOpen(false); setAiUtilityView(null); setStandalonePage(null); setSelectedStock(null); }}><ArrowLeftRight size={16} aria-hidden="true" />经典版</button>
                 <nav>{topTabs.map(item => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => switchScene(item.id)}>{item.label}</button>)}</nav>
                 <button className={`header-icon voice-toggle ${voicePlayback ? "on" : "off"}`} aria-label={voicePlayback ? "关闭语音播报" : "开启语音播报"} aria-pressed={voicePlayback} onClick={() => { setVoicePlayback(v => !v); flash(voicePlayback ? "语音播报已关闭" : "语音播报已开启"); }}>
-                  <span className="speaker-icon" aria-hidden="true"><b /><em /><em /></span>
+                  {voicePlayback ? <Volume2 size={22} aria-hidden="true" /> : <VolumeX size={22} aria-hidden="true" />}
                 </button>
-                <button className="header-icon menu" aria-label="更多菜单" onClick={() => flash("已打开更多功能")}>☰</button>
+                <button className="header-icon menu" aria-label="更多菜单" onClick={() => flash("已打开更多功能")}><Menu size={23} aria-hidden="true" /></button>
               </header>
 
               <div className="ai-body">
-                {tab === "discover" && <Discover reply={reply} question={query} onAsk={ask} onBannerAction={flash} onOpenSelection={() => setTab("select")} />}
-                {tab === "watch" && <Watch flash={flash} onInsight={setWatchInsight} />}
-                {tab === "select" && <SelectStock active={selectTab} setActive={setSelectTab} onAsk={ask} reply={reply} onOpenStock={openStock} onToggleStock={toggleStock} onOpenAi={openAiStockSelection} isAdded={(code) => watchlist.includes(code)} />}
+                {tab === "discover" && <Discover reply={reply} question={query} context={conversationContext} onAsk={ask} onBannerAction={flash} onOpenSelection={() => setTab("select")} />}
+                {tab === "watch" && <Watch flash={flash} onOpenArticle={(id) => openArticle(id, "ai")} />}
+                {tab === "select" && <SelectStock active={selectTab} setActive={setSelectTab} onAsk={ask} reply={reply} onOpenStock={openStock} onToggleStock={toggleStock} onHotTopics={() => setStandalonePage("hot-topics")} onShapeRanking={() => setStandalonePage("shape-ranking")} onShapeResult={(shape) => openShapeResult(shape, "select")} onStrategyBuilder={() => { setSelectedIndicators([]); setStandalonePage("strategy-builder"); }} onStrategyResults={(indicators) => openStrategyResults(indicators, "select")} isAdded={(code) => watchlist.includes(code)} />}
               </div>
 
               <form className="composer" onSubmit={submit}>
                 {voiceListening ? <button className="voice-listening" type="button" onClick={() => setVoiceListening(false)} aria-label="结束语音输入">
                   <b>我在听！请说...</b><span>松开发送　上滑取消</span><i className="voice-wave" aria-hidden="true">{Array.from({length:24},(_,i)=><em key={i} />)}</i>
                 </button> : <>
-                  {modeMenuOpen && <div className="reasoning-menu" role="menu" aria-label="选择推理模式">{reasoningModes.map((mode,index)=><button type="button" role="menuitemradio" aria-checked={reasoningMode===mode.id} className={reasoningMode===mode.id?"active":""} key={mode.id} onClick={() => { setReasoningMode(mode.id); setModeMenuOpen(false); flash(`已切换为${mode.label}`); }}><i>{["▤","ϟ","◎","⬡"][index]}</i><span><b>{mode.label}</b><small>{mode.description}</small></span></button>)}</div>}
-                  <div className="thinking"><button type="button" aria-expanded={modeMenuOpen} onClick={() => setModeMenuOpen(v=>!v)}><i>▤</i>{reasoningModes.find(mode=>mode.id===reasoningMode)?.label}<span>{modeMenuOpen?"⌃":"⌄"}</span></button></div>
-                  <div className="input-row"><button type="button" aria-label="切换语音输入" onClick={() => { setModeMenuOpen(false); setVoiceListening(true); }}><i className="mic-icon" /></button><input aria-label="向小宝提问" value={query} onChange={e => setQuery(e.target.value)} placeholder="在这里输入想说的话.."/><button type={query.trim() ? "submit" : "button"} aria-label={query.trim() ? "发送问题" : "展开快捷入口"} aria-expanded={query.trim() ? undefined : quickDrawerOpen} onClick={query.trim() ? undefined : () => { setModeMenuOpen(false); setQuickDrawerOpen(true); }}>{query.trim() ? "↑" : "＋"}</button></div>
+                  {modeMenuOpen && <div className="reasoning-menu" role="menu" aria-label="选择推理模式">{reasoningModes.map((mode) => { const ModeIcon = mode.icon; return <button type="button" role="menuitemradio" aria-checked={reasoningMode===mode.id} className={reasoningMode===mode.id?"active":""} key={mode.id} onClick={() => { setReasoningMode(mode.id); setModeMenuOpen(false); flash(`已切换为${mode.label}`); }}><i><ModeIcon size={17} aria-hidden="true" /></i><span><b>{mode.label}</b><small>{mode.description}</small></span></button>; })}</div>}
+                  <div className="thinking"><button type="button" aria-expanded={modeMenuOpen} onClick={() => setModeMenuOpen(v=>!v)}><Sparkles size={14} aria-hidden="true" />{reasoningModes.find(mode=>mode.id===reasoningMode)?.label}<ChevronDown className={modeMenuOpen ? "mode-chevron open" : "mode-chevron"} size={14} aria-hidden="true" /></button></div>
+                  <div className="input-row"><button type="button" aria-label="切换语音输入" onClick={() => { setModeMenuOpen(false); setVoiceListening(true); }}><Mic size={18} aria-hidden="true" /></button><input aria-label="向小原AI助手提问" value={query} onChange={e => setQuery(e.target.value)} placeholder="在这里输入想说的话.."/><button type={query.trim() ? "submit" : "button"} aria-label={query.trim() ? "发送问题" : "展开快捷入口"} aria-expanded={query.trim() ? undefined : quickDrawerOpen} onClick={query.trim() ? undefined : () => { setModeMenuOpen(false); setQuickDrawerOpen(true); }}>{query.trim() ? <Send size={18} aria-hidden="true" /> : <Plus size={20} aria-hidden="true" />}</button></div>
                 </>}
               </form>
               <BottomNav active="ai" aiMode onNavigate={(next) => { if (next !== "home") setAiUtilityView(next); }} />
-              {watchInsight && <WatchInsightModal title={watchInsight} onClose={() => setWatchInsight("")} onAction={flash} />}
-              {quickDrawerOpen && <QuickLinksDrawer onClose={() => setQuickDrawerOpen(false)} onOpen={(title) => { setQuickDrawerOpen(false); flash(`打开${title}`); }} />}
+              {quickDrawerOpen && <QuickLinksDrawer onClose={() => setQuickDrawerOpen(false)} onOpen={(title) => { setQuickDrawerOpen(false); if (title === "股票热点题材") setStandalonePage("hot-topics"); else if (title === "财报助手") setStandalonePage("financial-assistant"); else flash(`打开${title}`); }} />}
             </>
           )}
           <div className="home-bar" />
@@ -410,13 +495,13 @@ function QuickLinksDrawer({ onClose, onOpen }: { onClose: () => void; onOpen: (t
     <button className="quick-drawer-backdrop" type="button" aria-label="关闭快捷入口" onClick={onClose} />
     <section className="quick-drawer" role="dialog" aria-modal="true" aria-label="快捷入口">
       <div className="drawer-handle" aria-hidden="true" />
-      <header><h2>我的</h2><button type="button" onClick={() => onOpen("新建会话")}><i aria-hidden="true">＋</i> 新建会话</button></header>
+      <header><h2>快捷服务</h2><button type="button" onClick={() => onOpen("新建会话")}><Plus size={18} aria-hidden="true" /> 新建会话</button></header>
       <div className="quick-drawer-scroll">
         {quickLinkSections.map(section => <section className="quick-section" key={section.title}>
           <h3>{section.title}</h3>
-          <div>{section.links.map(link => <button type="button" key={link.title} onClick={() => onOpen(link.title)}>
-            <i className={`quick-icon ${link.tone}`} aria-hidden="true">{link.icon}</i><span><b>{link.title}</b><small>{link.description}</small></span>
-          </button>)}</div>
+          <div>{section.links.map(link => { const Icon = link.icon; return <button type="button" key={link.title} onClick={() => onOpen(link.title)}>
+            <i className={`quick-icon ${link.tone}`} aria-hidden="true"><Icon size={18} strokeWidth={2} /></i><span><b>{link.title}</b><small>{link.description}</small></span><ChevronRight className="quick-chevron" size={16} aria-hidden="true" />
+          </button>; })}</div>
         </section>)}
       </div>
     </section>
@@ -427,7 +512,7 @@ type BannerRecommendation = { id: string; eyebrow: string; title: string; subtit
 
 const fallbackBanners: BannerRecommendation[] = [
   { id: "midyear", eyebrow: "2026年度", title: "向新深耕 掘金成长", subtitle: "A股中期投资策略报告会回放", action: "立即查看", tone: "gold", image: "/og-classic.png" },
-  { id: "daily", eyebrow: "专属智能投顾", title: "AI日报 每日焕新", subtitle: "自选与持仓重点变化一屏掌握", action: "查看日报", tone: "red", image: "/xiaobao-avatar.png" },
+  { id: "daily", eyebrow: "专属智能投顾", title: "AI日报 每日焕新", subtitle: "自选与持仓重点变化一屏掌握", action: "查看日报", tone: "red", image: ipAssets.daily },
   { id: "strategy", eyebrow: "稳健投资专区", title: "穿越波动 寻找确定性", subtitle: "高股息与优质成长精选策略", action: "查看策略", tone: "green", image: "/og-classic.png" },
 ];
 
@@ -468,72 +553,71 @@ function DiscoverBanner({ onAction }: { onAction: (message: string) => void }) {
   </section>;
 }
 
-function Discover({ reply, question, onAsk, onBannerAction = () => undefined, onOpenSelection = () => undefined }: { reply: string; question?: string; onAsk: (text: string) => void; onBannerAction?: (message: string) => void; onOpenSelection?: () => void }) {
+function ConversationContextCard({ context }: { context: AnalysisContext }) {
+  return <section className="conversation-context-card">
+    <header><img src={ipAssets.avatar} alt="" /><span><b>{context.title}</b><small>{context.meta ?? "已从上一页面带入"}</small></span></header>
+    <div className="answer-thinking"><i>Ai</i><span><b>已完成信息检索与归纳</b><small>公告 · 财报 · 公司动态</small></span></div>
+    <h2>{context.title}</h2>
+    <div className="answer-highlight"><b>核心结论</b><p>{context.summary}</p></div>
+    <ol>{context.points.map(point => <li key={point}>{point}</li>)}</ol>
+    <p className="answer-risk">以上由AI根据原型示例数据整理，不构成投资建议。</p>
+  </section>;
+}
+
+function Discover({ reply, question, context, onAsk, onBannerAction = () => undefined, onOpenSelection = () => undefined }: { reply: string; question?: string; context?: AnalysisContext | null; onAsk: (text: string) => void; onBannerAction?: (message: string) => void; onOpenSelection?: () => void }) {
   const isSelectionConversation = Boolean(question && /选股|ROE|自定义条件/.test(question));
   return <div className="discover-screen screen-scroll">
     <DiscoverBanner onAction={onBannerAction} />
-    <div className="ip-row"><Mascot /><div><b>Hi,我是AI小宝，随时与您在线交流~</b></div></div>
+    <div className="ip-row"><Mascot /><div><b>Hi,我是小原AI助手，随时与您在线交流~</b></div></div>
     <div className="welcome-card">
       <p>今日上证指数温和上涨0.85%，可燃冰板块极端大涨4.77%，显著强于大盘。稳扎稳打～</p>
       <p>👍 当前热点方向明确，我可以帮你梳理核心逻辑。</p>
+      <div className="ip-tip-strip"><span><b>小原小贴士</b><small>重要行情变化与AI能力都可以从这里快速进入</small></span><img src={ipAssets.welcome} alt="" /></div>
     </div>
-    <div className="prompt-chips"><button onClick={() => onAsk("大盘压力位在哪")}>大盘压力位在哪</button><button onClick={() => onAsk("市场资金动向")}>市场资金动向</button></div>
-    {reply && <>{question && <div className="conversation-question">{question}</div>}<div className="assistant-reply"><div><Mascot /><b>{isSelectionConversation ? "AI定制选股" : "小宝解读"}</b><small>AI生成 · 已保留对话上下文</small></div><p>{reply}</p>{isSelectionConversation ? <div className="selection-result-preview"><span><b>12</b>只匹配</span><span><b>ROE &gt; 15%</b>核心条件</span><button type="button" onClick={onOpenSelection}>查看选股结果 〉</button></div> : <button>查看数据来源 ¹</button>}</div></>}
+    <div className="prompt-chips discover-prompts"><button onClick={() => onAsk("大盘压力位在哪")}>大盘压力位在哪</button><button onClick={() => onAsk("市场资金动向")}>市场资金动向</button><button onClick={() => onAsk("量价齐升的板块能否承接主线地位")}>量价齐升的板块能否承接主线地位</button></div>
+    {context && <ConversationContextCard context={context} />}
+    {reply && <>{question && <div className="conversation-question">{question}</div>}<div className="assistant-reply"><div><Mascot /><b>{isSelectionConversation ? "AI定制选股" : "小原AI助手"}</b><small>AI生成 · 已保留对话上下文</small></div><p>{reply}</p>{isSelectionConversation ? <div className="selection-result-preview"><span><b>12</b>只匹配</span><span><b>ROE &gt; 15%</b>核心条件</span><button type="button" onClick={onOpenSelection}>查看选股结果 〉</button></div> : <button>查看数据来源 ¹</button>}</div></>}
     {!reply && <p className="ai-disclaimer">以上内容由AI生成，不代表投资立场，且无法保证所有生成内容准确 <span>⌄</span></p>}
   </div>;
 }
 
-function Watch({ flash, onInsight }: { flash: (text: string) => void; onInsight: (title: string) => void }) {
+function Watch({ flash, onOpenArticle }: { flash: (text: string) => void; onOpenArticle: (id: string) => void }) {
   return <div className="watch-screen screen-scroll">
     <div className="index-cards">
       <button onClick={() => flash("跳转上证指数行情")}><b>4162.88</b><span>上证 +0.39%</span><MiniLine /></button>
       <button className="green" onClick={() => flash("跳转深成指数行情")}><b>14495.09</b><span>深成 -0.06%</span><MiniLine down /></button>
       <button className="green" onClick={() => flash("跳转创业板行情")}><b>3310.30</b><span>创指 -1.04%</span><MiniLine down /></button>
     </div>
+    <button className="ip-scene-banner watch-ip-banner" type="button" onClick={() => flash("打开小原看盘分析")}>
+      <span><small>小原看盘</small><b>盘面脉络，一眼看懂</b><em>指数、资金与热点方向实时梳理</em></span><img src={ipAssets.market} alt="" />
+    </button>
     <button className="breadth" onClick={() => flash("打开涨跌分布分析")}><div><span>涨3271 / 涨停91</span><b>实时总成交额 2.51万亿</b></div><div><span>跌2068 / 跌停1</span><b>近60日平均 2.36万亿　<em>6.29%</em></b></div></button>
     <div className="feed-tabs"><button className="active">全部</button><button>市场观察</button><button>盘面播报</button><button>快讯精选</button><button onClick={() => flash("播放盘面播报")}>▶ 播放</button></div>
     <div className="news-feed">
-      <button onClick={() => onInsight("欧佩克+增产协议将如何影响市场？")}><span>●　2026-03-01 18:40　快讯精选　<b>▣ AI解读</b></span><strong>财联社3月1日电，据报道，消息人士称，八个欧佩克+国家已就将石油日产量提高20.6万桶达成原则性协议。</strong><p>据报道，消息人士称，欧佩克+正在讨论将石油日产量上调。</p></button>
-      <button onClick={() => onInsight("伊朗相关事件对A股有哪些影响？")}><span>●　2026-03-01 18:38　快讯精选　<b>▣ AI解读</b></span><strong>外交部发言人就伊朗最高领袖哈梅内伊遇害答记者问</strong><p>相关事件持续影响全球风险偏好与能源市场预期。</p></button>
-      <button onClick={() => flash("打开盘面播报")}><span>●　2026-03-01 18:20　盘面播报</span><strong>金融与高股息方向贡献靠前，市场成交保持活跃</strong></button>
+      <button onClick={() => onOpenArticle("opec-output")}><span>●　2026-03-01 18:40　快讯精选</span><strong>财联社3月1日电，据报道，消息人士称，八个欧佩克+国家已就将石油日产量提高20.6万桶达成原则性协议。</strong><p>据报道，消息人士称，欧佩克+正在讨论将石油日产量上调。</p></button>
+      <button onClick={() => onOpenArticle("geopolitical-risk")}><span>●　2026-03-01 18:38　快讯精选</span><strong>地缘事件扰动全球风险偏好，能源与避险资产受关注</strong><p>相关事件持续影响全球风险偏好与能源市场预期。</p></button>
+      <button onClick={() => onOpenArticle("market-close")}><span>●　2026-03-01 18:20　盘面播报</span><strong>金融与高股息方向贡献靠前，市场成交保持活跃</strong></button>
     </div>
   </div>;
 }
 
-function WatchInsightModal({ title, onClose, onAction }: { title: string; onClose: () => void; onAction: (message: string) => void }) {
-  return <div className="watch-insight-layer">
-    <button className="watch-insight-backdrop" type="button" aria-label="关闭AI资讯解读" onClick={onClose} />
-    <article className="watch-insight-modal" role="dialog" aria-modal="true" aria-label="AI资讯解读">
-      <header><div><i>◉</i><b>问财AI资讯解读</b><em>AI生成</em></div><button type="button" aria-label="更多操作" onClick={() => onAction("已打开更多操作")}>•••</button><button type="button" aria-label="关闭" onClick={onClose}>×</button></header>
-      <div className="insight-scroll">
-        <section className="insight-search"><span><i /><i /><i /></span><div><b>补充搜索与总结已完成</b><small>检索4条权威来源 · 交叉验证关键信息</small></div><em>完成</em></section>
-        <h2>{title}</h2>
-        <section className="insight-conclusion"><h3>结论</h3><p>中东地缘与产量政策变化将重新定价全球风险资产。短期资金可能向能源、黄金及军工等避险方向集中，同时关注原油价格变化对化工、航空运输和通胀预期的传导影响。</p></section>
-        <section className="insight-analysis"><h3>解读分析</h3><ol><li><b>事件触发：</b>供应预期与地缘风险同步变化，国际油价波动率可能阶段性上升。</li><li><b>产业链传导：</b>上游油气开采、油服及煤化工方向相对受益；航空、物流等成本敏感行业承压。</li><li><b>A股映射：</b>能源安全、黄金、军工及高股息资产可能获得更多防御型资金关注。</li><li><b>风险提示：</b>消息仍可能反复，需结合后续官方信息、油价和资金流向持续验证。</li></ol></section>
-        <section className="insight-sources"><h3>补充搜索来源</h3><button onClick={() => onAction("打开资讯原文")}>财联社快讯 <span>已核验</span></button><button onClick={() => onAction("打开行业数据")}>国际能源市场数据 <span>已核验</span></button><button onClick={() => onAction("打开市场表现")}>A股行业表现与资金流向 <span>已汇总</span></button></section>
-      </div>
-    </article>
-  </div>;
-}
-
-function SelectStock({ active, setActive, onAsk, reply, onOpenStock, onToggleStock, onOpenAi, isAdded }: { active: SelectTab; setActive: (t: SelectTab) => void; onAsk: (text: string) => void; reply: string; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; onOpenAi: () => void; isAdded: (code: string) => boolean }) {
+function SelectStock({ active, setActive, onAsk, reply, onOpenStock, onToggleStock, onHotTopics, onShapeRanking, onShapeResult, onStrategyBuilder, onStrategyResults, isAdded }: { active: SelectTab; setActive: (t: SelectTab) => void; onAsk: (text: string) => void; reply: string; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; onHotTopics: () => void; onShapeRanking: () => void; onShapeResult: (shape: string) => void; onStrategyBuilder: () => void; onStrategyResults: (indicators: string[]) => void; isAdded: (code: string) => boolean }) {
+  const [shape, setShape] = useState("揭竿而起");
   const stockProps = (code: string) => ({ onOpen: () => onOpenStock(code), onAdd: () => onToggleStock(code), added: isAdded(code) });
   return <div className="select-screen screen-scroll">
-    <div className="select-intro"><Mascot /><span>盘中异动监测完毕，为您提炼了核心方向👇</span></div>
-    <button className="ai-selection-entry" type="button" onClick={onOpenAi}><span><i>Ai</i><b>AI定制选股</b><small>用自然语言补充行业、财务和技术条件</small></span><em>去定制 〉</em></button>
     <div className="select-card">
       <nav className="select-tabs"><button className={active === "hot" ? "active" : ""} onClick={() => setActive("hot")}>热点题材</button><button className={active === "shape" ? "active" : ""} onClick={() => setActive("shape")}>热门形态</button><button className={active === "strategy" ? "active" : ""} onClick={() => setActive("strategy")}>策略选股</button></nav>
-      {active === "hot" && <div className="hot-list"><h3>人工智能 <em>+0.27%</em><small>数据智能</small></h3><p>中共山东省委等印发措施，大力储备“人工智能+”人才...</p><div><Stock name="润泽科技" code="300442" rate="+17.7%" {...stockProps("300442")} /><Stock name="新安洁" code="831370" rate="+14.4%" {...stockProps("831370")} /></div><h3>人形机器人 <em>+0.59%</em><small>智能制造</small></h3><p>小鹏人形机器人量产基地作为重点项目正式提报落地...</p><div><Stock name="德邦科技" code="688035" rate="+14.7%" {...stockProps("688035")} /><Stock name="智微智能" code="001339" rate="+10.0%" {...stockProps("001339")} /></div><button className="explore">查看完整热点题材解读 〉</button></div>}
-      {active === "shape" && <div className="shape-panel"><div className="shape-head"><b>热门形态🔥</b><button>查看完整形态选股热榜 〉</button></div><div className="shape-stocks"><Stock name="W底成型 · 长安汽车" code="000625" rate="+12.4%" {...stockProps("000625")} /><Stock name="均线多头 · 科大讯飞" code="002230" rate="+8.7%" {...stockProps("002230")} /></div><b className="strength">强势　<span>弱势　反转　震荡</span></b><div className="shape-tags">{["揭竿而起","老鸭头","均线多头","三线开花","MACD","金山谷","回踩支撑确认","单阳盖阴","一阳穿三线"].map((x,i)=><button className={i===0?"active":""} key={x}>{x}</button>)}</div><button className="select-action" onClick={() => onAsk("帮我选出满足揭竿而起形态的股票有哪些？")}>选出符合条件的个股</button></div>}
-      {active === "strategy" && <div className="strategy-list"><article><h3>高盈利 <small>中长线　价值投资</small></h3><p>根据利润相关指标筛选出有很强盈利能力的公司</p><Stock name="赛微电子" code="300456" rate="+140.52%" {...stockProps("300456")} /></article><article><h3>高成长 <small>中长线　价值投资</small></h3><p>根据成长性相关指标筛选出有很强成长能力的公司</p><Stock name="飞沃科技" code="301232" rate="+151.92%" {...stockProps("301232")} /></article><button className="explore">探索所有策略 〉</button></div>}
+      {active === "hot" && <div className="hot-list"><h3>人工智能 <em>+0.27%</em><small>数据智能</small></h3><p>中共山东省委等印发措施，大力储备“人工智能+”人才...</p><div><Stock name="润泽科技" code="300442" rate="+17.7%" {...stockProps("300442")} /><Stock name="新安洁" code="831370" rate="+14.4%" {...stockProps("831370")} /></div><h3>人形机器人 <em>+0.59%</em><small>智能制造</small></h3><p>小鹏人形机器人量产基地作为重点项目正式提报落地...</p><div><Stock name="德邦科技" code="688035" rate="+14.7%" {...stockProps("688035")} /><Stock name="智微智能" code="001339" rate="+10.0%" {...stockProps("001339")} /></div><button className="explore" onClick={onHotTopics}>查看完整热点题材解读 〉</button></div>}
+      {active === "shape" && <div className="shape-panel"><div className="shape-head"><b>热门形态</b><button onClick={onShapeRanking}>查看完整形态选股热榜 〉</button></div><div className="shape-stocks"><Stock name="W底成型 · 长安汽车" code="000625" rate="+12.4%" {...stockProps("000625")} /><Stock name="均线多头 · 科大讯飞" code="002230" rate="+8.7%" {...stockProps("002230")} /></div><b className="strength">强势　<span>弱势　反转　震荡</span></b><div className="shape-tags">{["揭竿而起","老鸭头","均线多头","三线开花","MACD","金山谷","回踩支撑确认","单阳盖阴","一阳穿三线"].map(x=><button onClick={() => setShape(x)} className={shape===x?"active":""} key={x}>{x}</button>)}</div><button className="select-action" onClick={() => onShapeResult(shape)}>查看{shape}选股结果</button></div>}
+      {active === "strategy" && <div className="strategy-list"><article><div className="strategy-card-head"><h3>高盈利 <small>中长线　价值投资</small></h3><button className="strategy-all" onClick={() => onStrategyResults(["净利润增长率", "净资产收益率"])}>查看全部 〉</button></div><p>根据利润相关指标筛选出盈利能力较强的公司</p><div className="strategy-stock-pair"><Stock name="赛微电子" code="300456" rate="+140.52%" {...stockProps("300456")} /><Stock name="科大讯飞" code="002230" rate="+8.70%" {...stockProps("002230")} /></div></article><article><div className="strategy-card-head"><h3>高成长 <small>中长线　价值投资</small></h3><button className="strategy-all" onClick={() => onStrategyResults(["营收增长率", "毛利率"])}>查看全部 〉</button></div><p>根据成长性指标筛选增长表现较强的公司</p><div className="strategy-stock-pair"><Stock name="飞沃科技" code="301232" rate="+151.92%" {...stockProps("301232")} /><Stock name="润泽科技" code="300442" rate="+17.70%" {...stockProps("300442")} /></div></article><button className="explore" onClick={onStrategyBuilder}>探索所有策略 〉</button></div>}
     </div>
     <div className="prompt-chips select-prompts"><button onClick={() => onAsk("帮我深度解析人工智能板块")}>帮我深度解析人工智能板块</button><button onClick={() => onAsk("当前市场适合什么选股策略？")}>当前市场适合什么选股策略？</button></div>
-    {reply && <div className="assistant-reply compact"><b>问财 已经准备好答案了</b><p>{reply}</p></div>}
+    {reply && <div className="assistant-reply compact"><b>小原AI助手已经准备好答案</b><p>{reply}</p></div>}
   </div>;
 }
 
 function Stock({ name, code, rate, onOpen, onAdd, added }: { name: string; code: string; rate: string; onOpen: () => void; onAdd: () => void; added: boolean }) {
-  return <article className="stock"><button type="button" className="stock-link" onClick={onOpen}><span><b>{name}</b><small>{code}</small></span><em>{rate}</em></button><button type="button" className={`stock-add ${added ? "added" : ""}`} aria-label={added ? `移除${name}自选` : `添加${name}到自选`} onClick={onAdd}><span className="stock-add-icon" aria-hidden="true" /></button></article>;
+  return <article className="stock"><button type="button" className="stock-link" onClick={onOpen}><b>{name}</b><span><small>{code}</small><em>{rate}</em></span></button><button type="button" className={`stock-add ${added ? "added" : ""}`} aria-pressed={added} aria-label={added ? `移除${name}自选` : `添加${name}到自选`} onClick={onAdd}><span className="stock-add-icon" aria-hidden="true" /></button></article>;
 }
 
 const contextPrompts: Record<ClassicView, string[]> = {
@@ -545,20 +629,28 @@ const contextPrompts: Record<ClassicView, string[]> = {
   profile: ["如何开户", "新客专享活动"],
 };
 
-function ContextAssistant({ view, question, onQuestion, onClose, onInteract, onEscalate }: { view: ClassicView; question: string; onQuestion: (question: string) => void; onClose: () => void; onInteract: (message: string) => void; onEscalate: (question: string) => void }) {
+function ContextAssistant({ view, question, onQuestion, onClose, onInteract, onEscalate }: { view: ClassicView; question: string; onQuestion: (question: string) => void; onClose: () => void; onInteract: (message: string) => void; onEscalate: (question: string, context: AnalysisContext) => void }) {
   const [draft, setDraft] = useState("");
+  const context: AnalysisContext = {
+    title: question || "经典版页面分析",
+    summary: question.includes("基金") ? "结合收益、回撤与规模筛选稳健产品。" : question.includes("开户") ? "开户需完成身份验证、风险测评与协议签署。" : "近期结构性机会集中在科技成长、高股息与政策驱动方向。",
+    points: question.includes("开户") ? ["准备身份证和银行卡", "完成身份认证与风险测评", "签署协议并提交申请"] : ["中原证券 4.15，+1.72%", "同花顺 224.91，+4.34%", "需结合成交与资金流向持续观察"],
+    meta: "经典版页面分析结果",
+  };
   const submitContextQuestion = (event: FormEvent) => {
     event.preventDefault();
     const text = draft.trim();
     if (!text) return;
-    if (question) onEscalate(text);
+    if (question) onEscalate(text, context);
     else { onQuestion(text); setDraft(""); }
   };
   return <div className="context-assistant-layer">
     <button className="context-assistant-backdrop" type="button" aria-label="关闭AI助手" onClick={onClose} />
+    {!question && <div className="context-ip-presence"><img src={ipAssets.floating} alt=""/><span><b>小原AI助手</b><small>我可以结合当前页面继续帮你分析</small></span></div>}
     {!question && <div className="context-suggestions" aria-label="推荐问题">{contextPrompts[view].map(prompt => <button type="button" key={prompt} onClick={() => onQuestion(prompt)}><i>✦</i>{prompt}</button>)}</div>}
     {question && <article className="context-result" role="dialog" aria-modal="true" aria-label="AI回答">
-      <header><h2>{question}</h2><button type="button" aria-label="播放回答" onClick={() => onInteract("正在播放回答")}>◖</button><button type="button" aria-label="展开到AI首页" onClick={() => onEscalate(question)}>↗</button></header>
+      <img className="context-result-ip" src={ipAssets.floating} alt=""/>
+      <header><h2>{question}</h2><button type="button" aria-label="播放回答" onClick={() => onInteract("正在播放回答")}>◖</button><button type="button" aria-label="进入经典版AI问答" onClick={() => onEscalate(question, context)}>↗</button></header>
       <section className="reasoning-status"><b>⚛ 快速推理</b><strong>模型答案生成完成</strong><small>思考1秒</small></section>
       <div className="result-copy"><h3>{question.includes("基金") ? "稳健基金筛选建议" : question.includes("开户") ? "开户办理指引" : question.includes("国债") || question.includes("分红") ? "交易服务办理说明" : "市场分析结果 📈"}</h3><p>{question.includes("基金") ? "结合长期收益、最大回撤与产品规模，建议优先关注均衡配置、波动较低且运作稳定的产品。以下内容仅供参考。" : question.includes("开户") ? "准备本人身份证和银行卡，完成身份验证、风险测评与协议签署后即可提交开户申请。" : question.includes("国债") || question.includes("分红") ? "已为你整理对应业务入口、办理条件和交易时段，可点击卡片继续查看操作说明。" : "根据近期成交、资金流向与板块强度，当前结构性机会主要集中在科技成长、高股息与政策驱动方向。"}</p>
         <div className="result-tags"><button onClick={() => onInteract("已打开详细数据")}>查看详细数据</button><button onClick={() => onInteract("已加入自选跟踪")}>加入跟踪</button></div>
@@ -570,19 +662,19 @@ function ContextAssistant({ view, question, onQuestion, onClose, onInteract, onE
   </div>;
 }
 
-function ClassicChatPage({ reply, question, onAsk, onClose }: { reply: string; question: string; onAsk: (question: string) => void; onClose: () => void }) {
+function ClassicChatPage({ reply, question, context, onAsk, onClose }: { reply: string; question: string; context: AnalysisContext | null; onAsk: (question: string) => void; onClose: () => void }) {
   const [draft, setDraft] = useState("");
   return <div className="classic-chat-page">
-    <header><button type="button" onClick={onClose} aria-label="返回经典页面">‹</button><b>发现</b><span>小宝</span></header>
-    <div className="classic-chat-body"><Discover reply={reply} question={question} onAsk={onAsk} /></div>
-    <form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) { onAsk(draft.trim()); setDraft(""); } }}><button type="button" aria-label="语音提问"><i className="mic-icon" /></button><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="向小宝提问" aria-label="向小宝提问"/><button type="submit">＋</button></form>
+    <header><button type="button" onClick={onClose} aria-label="返回经典页面"><ArrowLeft size={22} aria-hidden="true" /></button><b>发现</b><span>小原AI助手</span></header>
+    <div className="classic-chat-body"><Discover reply={reply} question={question} context={context} onAsk={onAsk} /></div>
+    <form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) { onAsk(draft.trim()); setDraft(""); } }}><button type="button" aria-label="语音提问"><i className="mic-icon" /></button><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="向小原AI助手提问" aria-label="向小原AI助手提问"/><button type="submit">＋</button></form>
   </div>;
 }
 
-function ClassicScreen({ view, onView, onBack, onAssistant, flash, onSearch, onDailyReport, onOpenStock, onToggleStock, watchlist, aiMode = false }: { view: ClassicView; onView: (view: ClassicView) => void; onBack: () => void; onAssistant: () => void; flash: (s: string) => void; onSearch: () => void; onDailyReport: () => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; watchlist: string[]; aiMode?: boolean }) {
+function ClassicScreen({ view, onView, onBack, onAssistant, flash, onSearch, onDailyReport, onHotTopics, onFinancialAssistant, onOpenStock, onToggleStock, watchlist, aiMode = false }: { view: ClassicView; onView: (view: ClassicView) => void; onBack: () => void; onAssistant: () => void; flash: (s: string) => void; onSearch: () => void; onDailyReport: () => void; onHotTopics: () => void; onFinancialAssistant: () => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; watchlist: string[]; aiMode?: boolean }) {
   return <div className={`classic-screen classic-${view} ${aiMode ? "ai-utility-screen" : ""}`}>
     <div className="classic-scroll">
-      {view === "home" && <ClassicHome flash={flash} onSwitchAi={onBack} onAssistant={onAssistant} onSearch={onSearch} />}
+      {view === "home" && <ClassicHome flash={flash} onSwitchAi={onBack} onAssistant={onAssistant} onSearch={onSearch} onHotTopics={onHotTopics} onFinancialAssistant={onFinancialAssistant} />}
       {view === "quotes" && <ClassicQuotes market={false} onView={onView} onAssistant={onAssistant} aiMode={aiMode} flash={flash} onDailyReport={onDailyReport} onOpenStock={onOpenStock} onToggleStock={onToggleStock} watchlist={watchlist} />}
       {view === "market" && <ClassicQuotes market onView={onView} onAssistant={onAssistant} aiMode={aiMode} flash={flash} onDailyReport={onDailyReport} onOpenStock={onOpenStock} onToggleStock={onToggleStock} watchlist={watchlist} />}
       {view === "trade" && <ClassicTrade onAssistant={onAssistant} aiMode={aiMode} flash={flash} />}
@@ -594,19 +686,25 @@ function ClassicScreen({ view, onView, onBack, onAssistant, flash, onSearch, onD
 }
 
 function HeaderAssistantButton({ aiMode, onClick }: { aiMode: boolean; onClick: () => void }) {
-  return <button className={`header-assistant ${aiMode ? "ai" : "mascot"}`} type="button" aria-label={aiMode ? "打开AI助手" : "打开小宝对话"} onClick={onClick}>{aiMode ? <b>Ai</b> : <img src="/xiaobao-avatar.png" alt="" />}</button>;
+  return <button className={`header-assistant ${aiMode ? "ai" : "mascot"}`} type="button" aria-label="打开小原AI助手" onClick={onClick}>{aiMode ? <b>Ai</b> : <img src={ipAssets.floating} alt="" />}</button>;
 }
 
-function ClassicHome({ flash, onSwitchAi, onAssistant, onSearch }: { flash: (s: string) => void; onSwitchAi: () => void; onAssistant: () => void; onSearch: () => void }) {
-  const apps = [["▣","开户"],["▤","业务办理"],["♟","投顾社区"],["T0","T0算法交易"],["⇩","新股申购"],["▥","选股宝"],["基","买基金"],["ETF","ETF专区"],["▤","资讯"],["▦","全部应用"]];
+function ClassicHome({ flash, onSwitchAi, onAssistant, onSearch, onHotTopics, onFinancialAssistant }: { flash: (s: string) => void; onSwitchAi: () => void; onAssistant: () => void; onSearch: () => void; onHotTopics: () => void; onFinancialAssistant: () => void }) {
+  const apps = [
+    { icon: BriefcaseBusiness, label: "开户" }, { icon: Grid2X2, label: "业务办理" },
+    { icon: MessageCircleMore, label: "投顾社区" }, { icon: TrendingUp, label: "股票热点题材" },
+    { icon: FileChartColumn, label: "财报助手" }, { icon: Sparkles, label: "选股宝" },
+    { icon: Landmark, label: "买基金" }, { icon: WalletCards, label: "ETF专区" },
+    { icon: FileText, label: "资讯" }, { icon: Grid2X2, label: "全部应用" },
+  ];
   return <div className="classic-home-page">
     <header className="classic-home-head">
-      <button className="ai-mode-switch" onClick={onSwitchAi} aria-label="切换到AI版本"><i>⇆</i><b>AI版</b></button>
-      <button className="classic-search" onClick={onSearch}><span>股票/基金/资讯/功能/问答</span><i aria-hidden="true" /></button>
-      <button className="robot-entry" onClick={onAssistant} aria-label="打开小宝发现页"><img src="/xiaobao-avatar.png" alt="" /></button>
-      <button className="message-btn" onClick={() => flash("打开消息中心")} aria-label="打开消息中心"><span /><span /><span /><i>50</i></button>
+      <button className="ai-mode-switch" onClick={onSwitchAi} aria-label="切换到AI版本"><ArrowLeftRight size={16} aria-hidden="true" /><b>AI版</b></button>
+      <button className="classic-search" onClick={onSearch}><span>股票/基金/资讯/功能/问答</span><Search size={18} aria-hidden="true" /></button>
+      <button className="robot-entry" onClick={onAssistant} aria-label="打开小原AI助手"><img src={ipAssets.floating} alt="" /></button>
+      <button className="message-btn" onClick={() => flash("打开消息中心")} aria-label="打开消息中心"><Bell size={22} aria-hidden="true" /><i>50</i></button>
     </header>
-    <section className="classic-apps">{apps.map(([icon,label],i)=><button key={label} onClick={() => flash(`打开${label}`)}><i className={`app-dot tone-${i%4}`}>{icon}</i><span>{label}</span>{(i===2||i===6)&&<em>热门</em>}</button>)}</section>
+    <section className="classic-apps">{apps.map(({icon: Icon,label},i)=><button key={label} onClick={label === "股票热点题材" ? onHotTopics : label === "财报助手" ? onFinancialAssistant : () => flash(`打开${label}`)}><i className={`app-dot tone-${i%4}`}><Icon size={18} strokeWidth={2} aria-hidden="true" /></i><span>{label}</span>{(i===2||i===3)&&<em>热门</em>}</button>)}</section>
     <button className="notice-row" onClick={() => flash("查看全部公告")}><b>公告</b><span>公告</span><em>更多 〉</em></button>
     <button className="classic-banner" onClick={() => flash("立即解锁Level-2行情")}><span>Level-2行情</span><b>解码盘口信息<br/>把握决策先机</b><em>立即解锁</em><i>▥</i></button>
     <nav className="content-tabs"><button className="active">发现</button><button>快讯</button><button>直播</button><button>自选</button><button>课程</button></nav>
@@ -652,14 +750,14 @@ function ClassicProfile({ onAssistant, aiMode, flash }: { onAssistant: () => voi
 }
 
 function PageHeader({ title, onBack, action }: { title: string; onBack: () => void; action?: React.ReactNode }) {
-  return <header className="standalone-header"><button type="button" onClick={onBack} aria-label="返回">‹</button><b>{title}</b><span>{action}</span></header>;
+  return <header className="standalone-header"><button type="button" onClick={onBack} aria-label="返回"><ArrowLeft size={22} aria-hidden="true" /></button><b>{title}</b><span>{action}</span></header>;
 }
 
 function DailyReportPage({ watchlistCount, onBack }: { watchlistCount: number; onBack: () => void }) {
   return <div className="standalone-page daily-report-page">
     <PageHeader title="AI日报" onBack={onBack} action={<small>7月24日</small>} />
     <div className="standalone-scroll">
-      <section className="report-summary"><span>今日已更新</span><h2>你的专属投资日报</h2><p>聚合自选与持仓变化，盘前快速掌握值得关注的信息。</p></section>
+      <section className="report-summary"><div><span>今日已更新</span><h2>你的专属投资日报</h2><p>聚合自选与持仓变化，盘前快速掌握值得关注的信息。</p></div><img src={ipAssets.daily} alt=""/></section>
       <section className="report-module"><header><i>自</i><div><h3>自选分析日报</h3><p>{watchlistCount}只自选股 · 2条重要变化</p></div><button>查看 〉</button></header><div className="report-placeholder"><b>重点异动与公告摘要</b><span /><span /><span className="short" /></div></section>
       <section className="report-module"><header><i>持</i><div><h3>持仓分析日报</h3><p>登录后生成专属持仓洞察</p></div><button>查看 〉</button></header><div className="report-placeholder"><b>收益归因与风险提示</b><span /><span /><span className="short" /></div></section>
       <p className="report-note">内容为原型占位，正式版本将根据交易日数据生成。</p>
@@ -678,7 +776,7 @@ const searchableFeatures = [
 
 const streamedAnnouncementAnswer = "贵州茅台近期披露的信息主要集中在经营数据、现金分红安排与股东大会决议。综合公告内容来看，公司主营业务保持稳健，目前未发现改变核心经营逻辑的重大风险事项。";
 
-function GlobalSearchPage({ onBack, onOpenFunction, onContinue, onOpenStock, onToggleStock, onOpenArticle, isAdded }: { onBack: () => void; onOpenFunction: (id: FunctionPageId) => void; onContinue: (question: string) => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; onOpenArticle: (id: string) => void; isAdded: (code: string) => boolean }) {
+function GlobalSearchPage({ onBack, onOpenFunction, onContinue, onOpenStock, onToggleStock, onOpenArticle, isAdded }: { onBack: () => void; onOpenFunction: (id: FunctionPageId) => void; onContinue: (question: string, context: AnalysisContext) => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; onOpenArticle: (id: string) => void; isAdded: (code: string) => boolean }) {
   const [draft, setDraft] = useState("");
   const [aiPhase, setAiPhase] = useState<SearchAiPhase>("idle");
   const [streamedText, setStreamedText] = useState("");
@@ -686,6 +784,12 @@ function GlobalSearchPage({ onBack, onOpenFunction, onContinue, onOpenStock, onT
   const stockMatched = /茅台|贵州|600519/i.test(normalized);
   const suggestedQuestion = stockMatched ? "贵州茅台最近有什么重要公告？" : normalized;
   const featureMatches = normalized ? searchableFeatures.filter(feature => feature.keywords.some(keyword => normalized.includes(keyword) || keyword.includes(normalized.replace(/^打开/, "")))) : [];
+  const announcementContext: AnalysisContext = {
+    title: "贵州茅台近期重要公告",
+    summary: streamedAnnouncementAnswer,
+    points: ["经营数据：公司披露阶段性经营情况，主营业务保持稳健。", "利润分配：现金分红相关安排持续推进，关注后续实施公告。", "治理动态：股东大会审议事项已披露，未见重大异常变更。"],
+    meta: "来自经典版全局搜索",
+  };
 
   useEffect(() => {
     if (aiPhase !== "thinking") return;
@@ -718,18 +822,18 @@ function GlobalSearchPage({ onBack, onOpenFunction, onContinue, onOpenStock, onT
   }
 
   return <div className="standalone-page search-page">
-    <form className="global-search" onSubmit={event => { event.preventDefault(); askAi(); }}><i aria-hidden="true" /><input autoFocus value={draft} onChange={event => updateDraft(event.target.value)} placeholder="股票/基金/资讯/功能/问答" aria-label="全局搜索输入"/><button type="button" onClick={onBack}>关闭</button></form>
+    <form className="global-search" onSubmit={event => { event.preventDefault(); askAi(); }}><Search size={19} aria-hidden="true" /><input autoFocus value={draft} onChange={event => updateDraft(event.target.value)} placeholder="股票/基金/资讯/功能/问答" aria-label="全局搜索输入"/><button type="button" onClick={onBack}>关闭</button></form>
     <nav className="search-tabs"><button className="active">综合</button><button>股票</button><button>基金</button><button>资讯</button><button>智能问答</button></nav>
     <div className="search-scroll">
       {!normalized && <section className="search-empty"><b>搜索历史</b><span>输入股票、资讯或功能名称，结果将实时匹配</span></section>}
 
-      {featureMatches.length > 0 && <section className="native-search-section feature-results"><header><h2>功能</h2><span>AI已识别功能意图</span></header>{featureMatches.map(feature => <article key={feature.label}><i>{feature.icon}</i><div><b>{feature.label}</b><span>{feature.description}</span></div><button type="button" onClick={() => onOpenFunction(feature.id)}>打开</button></article>)}</section>}
+      {featureMatches.map(feature => <section className="ai-search-prompt feature-prompt" key={feature.id}><header><img src={ipAssets.avatar} alt=""/><div><b>小原AI助手</b><span>已识别你要使用的功能</span></div></header><div><p>猜你想要“<b>打开{feature.label}</b>”</p><button type="button" onClick={() => onOpenFunction(feature.id)}>前往</button></div></section>)}
 
-      {stockMatched && <section className="native-search-section search-stock-section"><header><h2>股票</h2><button>查看全部 〉</button></header><article><button className="search-stock-link" type="button" onClick={() => onOpenStock("600519")}><span className="market-badge">沪A</span><small>600519</small><b>贵州<span>茅台</span></b><em>GZMT</em></button><button type="button" className={`search-stock-add ${isAdded("600519") ? "added" : ""}`} aria-label={isAdded("600519") ? "移除贵州茅台自选" : "添加贵州茅台到自选"} onClick={() => onToggleStock("600519")}><span className="stock-add-icon" aria-hidden="true" /></button></article></section>}
+      {stockMatched && <section className="native-search-section search-stock-section"><header><h2>股票</h2><button>查看全部 〉</button></header><article><button className="search-stock-link" type="button" onClick={() => onOpenStock("600519")}><span className="market-badge">沪A</span><small>600519</small><b>贵州<span>茅台</span></b><em>GZMT</em></button><button type="button" className={`search-stock-add ${isAdded("600519") ? "added" : ""}`} aria-pressed={isAdded("600519")} aria-label={isAdded("600519") ? "移除贵州茅台自选" : "添加贵州茅台到自选"} onClick={() => onToggleStock("600519")}><span className="stock-add-icon" aria-hidden="true" /></button></article></section>}
 
-      {normalized && featureMatches.length === 0 && aiPhase === "idle" && <section className="ai-search-prompt"><header><img src="/xiaobao-avatar.png" alt=""/><div><b>问财AI助手</b><span>你的专属智能投资顾问</span></div></header><div><p>猜你想问“<b>{suggestedQuestion}</b>”</p><button type="button" onClick={askAi}>提问</button></div></section>}
+      {normalized && featureMatches.length === 0 && aiPhase === "idle" && <section className="ai-search-prompt"><header><img src={ipAssets.avatar} alt=""/><div><b>小原AI助手</b><span>你的专属智能投资顾问</span></div></header><div><p>猜你想问“<b>{suggestedQuestion}</b>”</p><button type="button" onClick={askAi}>提问</button></div></section>}
 
-      {normalized && featureMatches.length === 0 && aiPhase !== "idle" && <section className={`search-answer ${aiPhase}`} aria-live="polite"><header><img src="/xiaobao-avatar.png" alt=""/><div><b>问财AI助手</b><span>基于公开公告整理</span></div></header>{aiPhase === "thinking" ? <div className="ai-thinking-state"><span><i/><i/><i/></span><div><b>正在检索并梳理重要公告</b><small>公告 · 财报 · 公司动态</small></div></div> : <><div className="answer-thinking"><i>Ai</i><span><b>{aiPhase === "done" ? "已完成信息检索与归纳" : "正在生成回答"}</b><small>公告 · 财报 · 公司动态</small></span></div><h2>贵州茅台近期重要公告</h2><div className="answer-highlight"><b>核心结论</b><p>{streamedText}<i className={aiPhase === "streaming" ? "stream-cursor" : ""} /></p></div>{aiPhase === "done" && <><ol><li><b>经营数据：</b>公司披露阶段性经营情况，主营业务保持稳健。</li><li><b>利润分配：</b>现金分红相关安排持续推进，关注后续实施公告。</li><li><b>治理动态：</b>股东大会审议事项已披露，未见重大异常变更。</li></ol><p className="answer-risk">以上由AI根据原型示例数据整理，不构成投资建议。</p><button className="continue-question" type="button" onClick={() => onContinue(suggestedQuestion)}>继续追问</button></>}</>}</section>}
+      {normalized && featureMatches.length === 0 && aiPhase !== "idle" && <section className={`search-answer ${aiPhase}`} aria-live="polite"><header><img src={ipAssets.avatar} alt=""/><div><b>小原AI助手</b><span>基于公开公告整理</span></div></header>{aiPhase === "thinking" ? <div className="ai-thinking-state"><img src={ipAssets.loading} alt=""/><div><b>正在检索并梳理重要公告</b><small>公告 · 财报 · 公司动态</small></div></div> : <><div className="answer-thinking"><i>Ai</i><span><b>{aiPhase === "done" ? "已完成信息检索与归纳" : "正在生成回答"}</b><small>公告 · 财报 · 公司动态</small></span></div><h2>贵州茅台近期重要公告</h2><div className="answer-highlight"><b>核心结论</b><p>{streamedText}<i className={aiPhase === "streaming" ? "stream-cursor" : ""} /></p></div>{aiPhase === "done" && <><ol><li><b>经营数据：</b>公司披露阶段性经营情况，主营业务保持稳健。</li><li><b>利润分配：</b>现金分红相关安排持续推进，关注后续实施公告。</li><li><b>治理动态：</b>股东大会审议事项已披露，未见重大异常变更。</li></ol><p className="answer-risk">以上由AI根据原型示例数据整理，不构成投资建议。</p><button className="continue-question" type="button" onClick={() => onContinue(suggestedQuestion, announcementContext)}>继续追问</button></>}</>}</section>}
 
       {stockMatched && <section className="native-search-section search-news-section"><header><h2>资讯</h2><button>查看全部 〉</button></header>{articleCatalog.map(article => <button type="button" className="news-result" key={article.id} onClick={() => onOpenArticle(article.id)}><b>{article.title}</b><span>{article.time}　{article.kind} · {article.source}</span></button>)}</section>}
     </div>
@@ -813,25 +917,26 @@ function ArticleDetailPage({ article, onBack, onContinue }: { article: ArticleIn
   }
 
   return <div className="standalone-page article-detail-page">
-    <header className="article-head"><button type="button" onClick={onBack} aria-label="返回">‹</button><b>{article.kind}详情</b><span /></header>
+    <header className="article-head"><button type="button" onClick={onBack} aria-label="返回"><ArrowLeft size={22} aria-hidden="true" /></button><b>{article.kind}详情</b><span /></header>
     <div className="standalone-scroll article-scroll">
       <span className="article-kind">{article.kind}</span>
       <h1>{article.title}</h1>
       <p className="article-meta">{article.source} · {article.time}</p>
       <section className={`article-ai-insight ${insightOpen ? "open" : ""}`}>
         <button className="article-ai-trigger" type="button" aria-expanded={insightOpen} onClick={toggleInsight}>
-          <img src="/xiaobao-avatar.png" alt="" />
+          <img src={ipAssets.report} alt="" />
           <span><b>AI解读</b><small>摘要、关键数据与核心观点</small></span>
           <i>{insightOpen ? "⌃" : "⌄"}</i>
         </button>
         {insightOpen && <div className="article-ai-result" aria-live="polite">
-          {insightPhase === "thinking" ? <div className="article-ai-thinking"><span><i /><i /><i /></span><b>正在阅读并总结原文</b></div> : <>
+          {insightPhase === "thinking" ? <div className="article-ai-thinking"><img src={ipAssets.loading} alt=""/><b>正在阅读并总结原文</b></div> : <>
             <h2>核心观点</h2>
             <p>{streamedInsight}<i className={insightPhase === "streaming" ? "stream-cursor" : ""} /></p>
             {insightPhase === "done" && <><h2>关键要点</h2><ol>{article.points.map(point => <li key={point}>{point}</li>)}</ol><button className="article-continue" type="button" onClick={() => onContinue(`继续解读：${article.title}`)}>继续追问</button></>}
           </>}
         </div>}
       </section>
+      {article.kind === "资讯" && article.followUps && <section className="article-followups"><b>你还可以问</b><div>{article.followUps.map(question => <button type="button" key={question} onClick={() => onContinue(question)}>{question}</button>)}</div></section>}
       <p className="article-lead">{article.lead}</p>
       <p>从盘面和公开信息看，相关变化正在通过行业景气、资金偏好和企业盈利预期向市场传导。投资者仍需结合后续公告、行业数据及价格变化持续验证。</p>
     </div>
@@ -844,9 +949,13 @@ function StockDetailPage({ stock, added, onBack, onToggle, onOpenArticle, flash 
   const down = stock.change.startsWith("-");
   const prices = ["65.16", "65.14", "65.13", "65.12", "65.11", "65.10", "65.09", "65.08", "65.07", "65.06"];
   const [activeTab, setActiveTab] = useState<StockDetailTab>("看点");
+  const [financialView, setFinancialView] = useState<"overview" | "reports" | "reader">("overview");
+  const [selectedReport, setSelectedReport] = useState("");
   const tabs: StockDetailTab[] = ["看点", "资讯", "盘口", "简况(F10)", "诊股", "财务"];
+  if (financialView === "reports") return <FinancialReportListPage stock={stock} onBack={() => setFinancialView("overview")} onSelect={(report) => { setSelectedReport(report); setFinancialView("reader"); }} />;
+  if (financialView === "reader") return <div className="standalone-page financial-assistant-page"><PageHeader title="AI财报分析" onBack={() => setFinancialView("reports")} /><div className="standalone-scroll"><FinancialReportReader stock={stock} reportTitle={selectedReport} /></div></div>;
   return <div className="standalone-page stock-detail-page">
-    <header className="stock-detail-head"><button onClick={onBack} aria-label="返回">‹</button><div><b>{stock.name}</b><span>{stock.price}　{stock.change}</span></div><button onClick={() => flash("打开个股搜索")} aria-label="搜索">⌕</button></header>
+    <header className="stock-detail-head"><button onClick={onBack} aria-label="返回"><ArrowLeft size={23} aria-hidden="true" /></button><div><b>{stock.name}</b><span>{stock.price}　{stock.change}</span></div><button onClick={() => flash("打开个股搜索")} aria-label="搜索"><Search size={23} aria-hidden="true" /></button></header>
     <nav className="stock-main-tabs">{tabs.map(tab => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</nav>
     <div className="stock-detail-scroll">
       {activeTab === "看点" && <StockHighlights stock={stock} />}
@@ -854,9 +963,9 @@ function StockDetailPage({ stock, added, onBack, onToggle, onOpenArticle, flash 
       {activeTab === "盘口" && <><section className={`stock-overview ${down ? "down" : ""}`}><div><strong>{stock.price}</strong><span>{stock.delta}　{stock.change}</span></div><dl><div><dt>高</dt><dd>66.83</dd><dt>低</dt><dd>64.86</dd><dt>开</dt><dd>65.92</dd></div><div><dt>市值</dt><dd>1068.48亿</dd><dt>市盈</dt><dd>20.65</dd><dt>量比</dt><dd>0.76</dd></div></dl></section><nav className="stock-periods"><button className="active">分时</button><button>日K</button><button>周K</button><button>月K</button><button>五日</button><button>更多</button></nav><section className="market-chart"><div className="chart-main"><p><span>均价: 65.94</span>　最新: {stock.price}　{stock.change}</p><svg viewBox="0 0 260 270" preserveAspectRatio="none" aria-label="分时价格走势"><path className="grid" d="M0 45H260M0 135H260M0 225H260M65 0V270M130 0V270M195 0V270"/><path className="average" d="M0 215 C35 155 70 160 105 170 S175 150 260 175"/><path className="price" d="M0 235 L8 190 14 205 20 165 27 182 35 145 43 175 52 130 61 166 70 138 78 190 86 154 95 171 104 112 112 158 122 142 132 184 143 169 152 205 162 187 174 221 186 208 198 236 210 223 221 239 232 218 244 246 260 258"/></svg><small>09:30　　　　　　　　　11:30　　　　　　　　15:00</small></div><div className="order-book">{prices.map((price,index) => <p key={`${price}-${index}`}><span>{index < 5 ? `卖${5-index}` : `买${index-4}`}</span><b>{price}</b><i>{[44,10,64,32,59,34,50,19,31,50][index]}</i></p>)}</div></section></>}
       {activeTab === "简况(F10)" && <StockInfoPanel title="公司简况" items={[["所属行业","软件和信息技术服务"],["总市值","1068.48亿元"],["主营业务","数据中心、云计算与数字化服务"],["上市日期","2022-04-21"]]} />}
       {activeTab === "诊股" && <StockInfoPanel title="AI诊股评分" items={[["综合评分","78分 · 优于行业72%公司"],["趋势强度","中性偏强"],["资金状态","近5日主力净流入"],["风险等级","中等"]]} />}
-      {activeTab === "财务" && <StockInfoPanel title="核心财务指标" items={[["营业收入","44.62亿元 · +17.42%"],["归母净利润","5.67亿元 · +5.43%"],["净资产收益率","16.82%"],["经营现金流","8.31亿元"]]} />}
+      {activeTab === "财务" && <StockFinancialOverview stock={stock} onOpenReports={() => setFinancialView("reports")} />}
     </div>
-    <footer className="stock-actions"><button onClick={() => flash("打开下单")}>⌄<span>下单</span></button><button onClick={() => setActiveTab("诊股")}>＋<span>诊股</span></button><button className={added ? "added" : ""} onClick={onToggle}>{added ? "✓" : "＋"}<span>{added ? "移除自选" : "加自选"}</span></button><button onClick={() => flash("打开更多行情")}>•••<span>更多</span></button></footer>
+    <footer className="stock-actions"><button onClick={() => flash("打开下单")}><ArrowLeftRight size={21} aria-hidden="true" /><span>下单</span></button><button onClick={() => setActiveTab("诊股")}><Stethoscope size={21} aria-hidden="true" /><span>诊股</span></button><button className={added ? "added" : ""} onClick={onToggle}>{added ? <Check size={21} aria-hidden="true" /> : <CirclePlus size={21} aria-hidden="true" />}<span>{added ? "移除自选" : "加自选"}</span></button><button onClick={() => flash("打开更多行情")}><MoreHorizontal size={21} aria-hidden="true" /><span>更多</span></button></footer>
   </div>;
 }
 
@@ -868,12 +977,170 @@ function StockHighlights({ stock }: { stock: StockInfo }) {
     { title: "技术形态处于关键位置", impact: 3, text: "股价正在测试前期成交密集区，若量能延续，可继续观察突破有效性。" },
   ];
   return <div className="stock-highlights">
-    <nav><button className="active">个股看点</button><button>AI策略</button></nav>
-    <div className="highlight-summary"><img src="/xiaobao-avatar.png" alt=""/><b>今日{stock.name}，包含<span>3</span>个风险，<em>4</em>个亮点</b></div>
+    <div className="highlight-summary"><img src={ipAssets.report} alt=""/><b>今日{stock.name}，包含<span>3</span>个风险，<em>4</em>个亮点</b></div>
     <section className="market-impression"><h2>市场印象</h2><p>{stock.name}是所在行业的核心公司，业务具备较强竞争壁垒。当前市场关注点集中在行业景气、盈利兑现和资金承接，短期弹性与波动并存。</p></section>
     {highlights.map(item => <article className="highlight-card" key={item.title}><h3><span>亮点</span>{item.title}<i>⌃</i></h3><div className="impact-stars"><small>影响度</small><b>{"★★★★★".slice(0,item.impact)}<em>{"★★★★★".slice(item.impact)}</em></b></div><p>{item.text}</p></article>)}
     <article className="highlight-card risk"><h3><span>风险</span>短线涨幅较大，注意波动风险<i>⌃</i></h3><div className="impact-stars"><small>影响度</small><b>★★★★<em>★</em></b></div><p>当前估值与交易拥挤度均有所提升，若行业催化不及预期，股价可能出现较大回撤。</p></article>
   </div>;
+}
+
+type FinancialTab = "guide" | "document" | "qa";
+
+const financialTrendData = [
+  { period: "2022年报", value: "3756万", height: 46, rate: "25.11%" },
+  { period: "2023年报", value: "3985万", height: 50, rate: "6.10%" },
+  { period: "2024年报", value: "6251万", height: 78, rate: "56.86%" },
+  { period: "2025年报", value: "7208万", height: 90, rate: "15.31%" },
+  { period: "2026一季报", value: "1438万", height: 24, rate: "6.35%" },
+];
+
+function StockFinancialOverview({ stock, onOpenReports }: { stock: StockInfo; onOpenReports: () => void }) {
+  const [metric, setMetric] = useState("归母净利润");
+  const metrics = ["归母净利润", "营业总收入", "扣非净利润", "净资产收益率", "销售净利率", "销售毛利率", "每股经营现金流", "每股收益"];
+  return <div className="stock-financial-overview">
+    <button className="financial-assistant-banner" type="button" onClick={onOpenReports}>
+      <span className="banner-avatar"><img src={ipAssets.report} alt="" /></span>
+      <span><b>财报助手</b><small>选择报告，获取AI深度解读</small></span>
+      <ChevronRight size={20} aria-hidden="true" />
+    </button>
+    <section className="financial-metric-section">
+      <header><div><BarChart3 size={18} aria-hidden="true" /><h2>常用指标</h2></div><button type="button">更多<ChevronRight size={16} aria-hidden="true" /></button></header>
+      <div className="metric-selector">{metrics.map(item => <button type="button" aria-pressed={metric === item} className={metric === item ? "active" : ""} onClick={() => setMetric(item)} key={item}>{item}</button>)}</div>
+      <div className="financial-chart-head"><span><i />{metric}（元）</span><span><i />同比</span><button type="button">单季度<ChevronDown size={15} aria-hidden="true" /></button></div>
+      <div className="financial-chart" role="img" aria-label={`${stock.name}${metric}近五期趋势`}>
+        <div className="chart-gridlines"><i /><i /><i /><i /></div>
+        <div className="financial-bars">{financialTrendData.map(item => <div key={item.period}><span>{item.value}</span><i style={{ height: `${item.height}%` }} /><small>{item.period}</small></div>)}</div>
+        <svg className="financial-rate-line" viewBox="0 0 320 150" preserveAspectRatio="none" aria-hidden="true"><path d="M27 80 L92 120 L157 24 L222 96 L287 119"/><circle cx="27" cy="80" r="4"/><circle cx="92" cy="120" r="4"/><circle cx="157" cy="24" r="4"/><circle cx="222" cy="96" r="4"/><circle cx="287" cy="119" r="4"/></svg>
+      </div>
+    </section>
+    <section className="financial-period-table"><header><span>报告期</span><span>{metric}（元）</span><span>同比</span></header>{[...financialTrendData].reverse().map(item => <div key={item.period}><b>{item.period}</b><span>{item.value}</span><em>{item.rate}</em></div>)}</section>
+  </div>;
+}
+
+function getFinancialReports(stock: StockInfo) {
+  return ["2025年年度报告", "2026年一季度报告", "2025年三季度报告", "2025年半年度报告", "2025年一季度报告", "2024年年度报告", "2024年三季度报告", "2024年半年度报告", "2024年一季度报告", "2023年年度报告"].map(period => `${stock.name} · ${period}`);
+}
+
+function FinancialReportListPage({ stock, onBack, onSelect }: { stock: StockInfo; onBack: () => void; onSelect: (report: string) => void }) {
+  return <div className="standalone-page financial-report-list-page">
+    <section className="report-list-hero"><button type="button" onClick={onBack} aria-label="返回"><ArrowLeft size={23} aria-hidden="true" /></button><div><span>AI财报助手</span><h1>选择财报</h1><p>选择报告后生成对应内容导读</p></div><img src={ipAssets.report} alt="小原AI助手" /></section>
+    <div className="report-list-sheet"><header><CalendarDays size={18} aria-hidden="true" /><div><b>报告列表</b><span>{stock.name} · {stock.code}</span></div></header><div className="standalone-scroll">{getFinancialReports(stock).map(report => <button type="button" key={report} onClick={() => onSelect(report)}><FileText size={18} aria-hidden="true"/><span><b>{report}</b><small>点击查看AI分析</small></span><ChevronRight size={19} aria-hidden="true" /></button>)}<p>没有更多了</p></div></div>
+  </div>;
+}
+
+function FinancialReportReader({ stock, reportTitle = `${stock.name} · 2025年年度报告`, compact = false }: { stock: StockInfo; reportTitle?: string; compact?: boolean }) {
+  const [tab, setTab] = useState<FinancialTab>("guide");
+  const [draft, setDraft] = useState("");
+  const [qaQuestion, setQaQuestion] = useState("");
+  const [qaPhase, setQaPhase] = useState<"idle" | "thinking" | "streaming" | "done">("idle");
+  const [qaText, setQaText] = useState("");
+  const qaAnswer = qaQuestion.includes("营业额")
+    ? "报告期内公司实现营业收入44.62亿元，同比增长17.42%。收入增长主要来自数据中心服务和云计算业务，主营业务延续稳健增长。"
+    : qaQuestion.includes("股东")
+      ? "最新报告显示公司股权结构保持稳定，控股股东持股情况未发生重大异常变化，后续可继续关注定期报告中的股东户数与机构持仓变化。"
+      : qaQuestion.includes("董事长")
+        ? `根据本期财报披露，${stock.name}董事长及核心管理团队保持稳定，未见影响公司治理连续性的重大变更。`
+        : "这份财报最值得关注的是盈利增长与现金流改善能否持续。当前收入和净利润保持增长，但仍需跟踪资本开支兑现、毛利率变化及行业需求波动。";
+
+  useEffect(() => {
+    if (qaPhase !== "thinking") return;
+    const timer = window.setTimeout(() => setQaPhase("streaming"), 700);
+    return () => window.clearTimeout(timer);
+  }, [qaPhase]);
+
+  useEffect(() => {
+    if (qaPhase !== "streaming") return;
+    const timer = window.setInterval(() => {
+      setQaText(current => {
+        const next = qaAnswer.slice(0, current.length + 2);
+        if (next.length >= qaAnswer.length) setQaPhase("done");
+        return next;
+      });
+    }, 28);
+    return () => window.clearInterval(timer);
+  }, [qaAnswer, qaPhase]);
+
+  function askFinancial(question: string) {
+    setTab("qa");
+    setQaQuestion(question);
+    setQaText("");
+    setQaPhase("thinking");
+    setDraft("");
+  }
+  return <section className={`financial-reader ${compact ? "compact" : ""}`}>
+    <header className="financial-title"><div><b>{reportTitle}</b><span>{stock.code} · AI财报分析解读</span></div></header>
+    <nav className="financial-tabs"><button className={tab === "guide" ? "active" : ""} onClick={() => setTab("guide")}>内容导读</button><button className={tab === "document" ? "active" : ""} onClick={() => setTab("document")}>正文</button><button className={tab === "qa" ? "active" : ""} onClick={() => setTab("qa")}>财报问答</button></nav>
+    {tab === "guide" && <div className="financial-guide"><section><h2>业绩概览</h2><p>报告期内，公司实现营业收入<b>44.62亿元</b>，同比增长<b>17.42%</b>；归母净利润达到<b>5.67亿元</b>，同比增长<b>5.43%</b>。经营活动产生的现金流量净额同比增长<b>26.20%</b>，主营业务盈利增长具备现金流支撑。</p></section><section><h2>营业收入结构</h2><h3>按业务分类</h3><div className="financial-table"><b>业务板块</b><b>营业收入</b><b>同比变化</b><b>毛利率</b><span>数据中心服务</span><span>21.47亿</span><em>+22.61%</em><span>31.68%</span><span>云计算服务</span><span>13.18亿</span><em>+15.98%</em><span>36.46%</span><span>数字化解决方案</span><span>9.97亿</span><em>+8.27%</em><span>40.65%</span></div></section><section className="financial-observation"><h2>AI观察</h2><p>收入增速与现金流同步改善，说明增长质量较为稳健；后续重点关注资本开支兑现与毛利率变化。</p><button onClick={() => askFinancial("这份财报最值得关注的风险是什么？")}>继续提问</button></section></div>}
+    {tab === "document" && <div className="report-document"><div className="document-tools"><button>−</button><span>缩放：100%</span><button>＋</button></div><article className="report-cover"><i>中原证券</i><h2>{stock.name}</h2><h3>2025年年度报告</h3><span>证券代码 {stock.code}</span><div className="report-illustration"><b /><b /><b /></div><p>{stock.name}股份有限公司</p></article><article className="report-page-preview"><h3>公司年度大事记</h3><div><span /><span /></div><p>报告期内，公司围绕主营业务持续推进产品升级与市场拓展，核心经营指标保持稳定增长。</p></article></div>}
+    {tab === "qa" && <div className="financial-qa"><div className={`financial-qa-hero ${qaQuestion ? "compact" : ""}`}><img src={ipAssets.report} alt="小原AI助手"/><h2>Hi，我是小原AI助手</h2><p>你可以询问我关于这份报告的相关问题</p></div>{qaQuestion && <section className="financial-qa-current" aria-live="polite"><p className="financial-qa-question">{qaQuestion}</p><div className="financial-qa-answer"><header><img src={ipAssets.avatar} alt=""/><b>小原AI助手</b></header>{qaPhase === "thinking" ? <div className="financial-qa-thinking"><img src={ipAssets.loading} alt=""/><span>正在结合当前财报分析...</span></div> : <p>{qaText}<i className={qaPhase === "streaming" ? "stream-cursor" : ""}/></p>}</div></section>}<div className="financial-suggestions">{["公司的营业额", "公司的股东信息", "公司的董事长是谁"].map(question => <button key={question} onClick={() => askFinancial(question)}>{question}</button>)}</div><form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) askFinancial(draft.trim()); }}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入内容" aria-label="财报问题"/><button type="submit" aria-label="发送"><ArrowUp size={18} aria-hidden="true"/></button></form></div>}
+  </section>;
+}
+
+function FinancialAssistantPage({ onBack }: { onBack: () => void }) {
+  const [draft, setDraft] = useState("");
+  const [stock, setStock] = useState<StockInfo | null>(null);
+  const [report, setReport] = useState("");
+  function submitStock(event: FormEvent) {
+    event.preventDefault();
+    const text = draft.trim();
+    if (!text) return;
+    const match = Object.values(stockCatalog).find(item => item.name.includes(text) || item.code === text) ?? stockCatalog["600519"];
+    setStock(match);
+  }
+  if (stock && !report) return <FinancialReportListPage stock={stock} onBack={() => setStock(null)} onSelect={setReport} />;
+  return <div className="standalone-page financial-assistant-page"><PageHeader title={report ? "AI财报分析" : "财报助手"} onBack={report ? () => setReport("") : onBack} />{stock && report ? <div className="standalone-scroll"><FinancialReportReader stock={stock} reportTitle={report} /></div> : <div className="financial-assistant-entry"><img src={ipAssets.report} alt="小原AI助手"/><h1>小原AI财报助手</h1><p>提炼关键指标、增长动力与潜在风险，帮助你快速读懂上市公司财报。</p><ul><li>关键业绩与现金流概览</li><li>业务结构和盈利质量解读</li><li>围绕财报继续问答</li></ul><form onSubmit={submitStock}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入股票名称或代码" aria-label="输入股票名称或代码"/><button type="submit">选择财报</button></form><small>示例可输入：贵州茅台、润泽科技</small></div>}</div>;
+}
+
+const hotTopicData = [
+  { name: "算力基建", grade: "S", level: "超级热点", insight: "海外AI基础设施投入持续上调，国内算力中心建设与液冷需求同步升温。", metrics: ["0 : 2", "2", "+4.35"], stocks: ["300442", "603019", "002230"] },
+  { name: "存储芯片", grade: "A", level: "值得关注", insight: "存储价格周期回暖叠加端侧AI需求，国产存储产业链景气度改善。", metrics: ["3 : 1", "1", "+2.18"], stocks: ["603986", "688256", "002371"] },
+  { name: "AI资本开支", grade: "S", level: "超级热点", insight: "全球科技公司上调资本支出预期，算力与数据中心链条延续高景气。", metrics: ["2 : 0", "2", "+5.06"], stocks: ["300442", "603019", "688256"] },
+  { name: "芯片突围", grade: "A", level: "值得关注", insight: "国产替代向设备、材料与先进封装扩散，产业链订单韧性值得持续跟踪。", metrics: ["4 : 1", "1", "+3.27"], stocks: ["002371", "688035", "603986"] },
+  { name: "地缘风险", grade: "A", level: "值得关注", insight: "外部不确定性推升能源安全与自主可控关注度，短期波动也会同步放大。", metrics: ["1 : 3", "0", "-1.08"], stocks: ["600519", "601375", "002230"] },
+];
+
+function HotTopicsPage({ active, onActive, onBack, onOpenStock, onToggleStock, isAdded }: { active: string; onActive: (name: string) => void; onBack: () => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; isAdded: (code: string) => boolean }) {
+  const topic = hotTopicData.find(item => item.name === active) ?? hotTopicData[0];
+  return <div className={`standalone-page hot-topics-page grade-${topic.grade.toLowerCase()}`}><PageHeader title="股票热点题材" onBack={onBack} /><nav className="topic-tabs">{hotTopicData.map(item => <button className={item.name === topic.name ? "active" : ""} onClick={() => onActive(item.name)} key={item.name}>{item.name}</button>)}</nav><div className="standalone-scroll"><section className="topic-hero"><div><h1>{topic.name}</h1><span className={`topic-level grade-${topic.grade.toLowerCase()}`}><b>{topic.grade}</b>{topic.level}</span></div><p><b>AI解读</b>{topic.insight}</p></section><section className="topic-stocks"><header><h2>相关热股</h2><button>事件脉络 〉</button></header><div className="topic-metrics"><span>涨跌比例<b>{topic.metrics[0]}</b></span><span>涨停家数(家)<b>{topic.metrics[1]}</b></span><span>主力资金(亿)<b>{topic.metrics[2]}</b></span></div>{topic.stocks.map(code => { const stock = stockCatalog[code]; return <article key={code}><button className="topic-stock-main" onClick={() => onOpenStock(code)}><span><b>{stock.name}</b><small>{stock.market ?? "主题相关标的"}</small></span><strong>{stock.change}</strong></button><button className={`topic-add ${isAdded(code) ? "added" : ""}`} onClick={() => onToggleStock(code)}>{isAdded(code) ? "已自选" : "加自选"}</button><p><b>AI解读</b>{stock.name}受益于{topic.name}方向的产业催化，近期资金关注度提升，仍需留意短线波动。</p></article>; })}</section></div></div>;
+}
+
+const shapeNames = ["攻击迫线", "红杏出墙", "三阳不吃一阴", "双十字星", "大阳包大阴", "剧涨并排红", "串阳K线", "八仙过海", "绝处逢生", "笑里藏刀", "立竿见影", "九九艳阳天"];
+
+function CandleMini({ seed = 0 }: { seed?: number }) {
+  return <div className="candle-mini">{Array.from({ length: 7 }, (_, index) => <i key={index} className={(index + seed) % 3 === 0 ? "down" : "up"} style={{ height: `${13 + ((index * 7 + seed * 3) % 22)}px` }} />)}</div>;
+}
+
+function ShapeRankingPage({ onBack, onOpen }: { onBack: () => void; onOpen: (shape: string) => void }) {
+  return <div className="standalone-page shape-ranking-page"><PageHeader title="形态选股热榜" onBack={onBack} /><div className="shape-rank-banner"><b>经典形态</b><span>按近期成功率与收益表现排序</span></div><div className="standalone-scroll shape-grid">{shapeNames.map((shape, index) => <button type="button" key={shape} onClick={() => onOpen(shape)}><header><b>{shape}</b><span>{3 + index % 7}只</span></header><CandleMini seed={index}/><footer><span>成功率 <b>{36 + index * 3}.5%</b></span><em>近5日 {index % 3 === 0 ? "+8.26%" : "+3.18%"}</em></footer></button>)}</div></div>;
+}
+
+function ShapeResultPage({ shape, onBack, onOpenStock }: { shape: string; onBack: () => void; onOpenStock: (code: string) => void }) {
+  return <div className="standalone-page shape-result-page"><PageHeader title="形态选股结果" onBack={onBack} /><div className="standalone-scroll"><section className="shape-result-summary"><h1>{shape}</h1><p>形态简介：股价在整理后出现向上突破信号，需结合量能与大盘环境确认有效性。</p><div><span>最佳持股期<b>6天</b></span><span>年化收益率<b>212.10%</b></span><span>策略成功率<b>36.35%</b></span><CandleMini seed={2}/></div></section><section className="shape-stock-result"><h2>共1只股票</h2><button onClick={() => onOpenStock("300975")}><span><b>商络电子</b><small>300975</small></span><strong>31.86</strong><em>-4.87%</em></button><div className="large-candles">{Array.from({ length: 28 }, (_, index) => <i key={index} className={index % 4 === 0 ? "down" : "up"} style={{ height: `${18 + (index * 11) % 50}px` }} />)}</div><div className="volume-bars">{Array.from({ length: 28 }, (_, index) => <i key={index} className={index % 4 === 0 ? "down" : "up"} style={{ height: `${8 + (index * 13) % 42}px` }} />)}</div></section></div></div>;
+}
+
+const indicatorGroups = [
+  { title: "股票范围", items: ["市场", "行业", "概念", "地区", "上市年限"] },
+  { title: "估值指标", items: ["市盈率", "动态市盈率(TTM)", "市销率", "市现率", "PEG", "市净率", "总股本", "总市值", "流通股本", "流通市值"] },
+  { title: "财务指标", items: ["净利润", "净利润增长率", "营业收入", "营收增长率", "毛利率", "净利率", "每股净资产", "净资产收益率", "每股现金流", "每股收益", "资产负债率"] },
+  { title: "行情指标", items: ["股价", "涨跌幅", "涨跌停", "换手率", "振幅", "成交量", "量比", "主力资金"] },
+  { title: "技术指标", items: ["均线", "MACD", "KDJ", "BOLL", "RSI", "WR", "K线形态"] },
+  { title: "事件指标", items: ["预期", "公告", "定向增发", "增减持", "解禁", "高送转"] },
+];
+
+function StrategyBuilderPage({ selected, onSelected, onBack, onResults }: { selected: string[]; onSelected: (items: string[]) => void; onBack: () => void; onResults: () => void }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  function choose(condition: string) {
+    if (!editing) return;
+    const value = `${editing}：${condition}`;
+    onSelected([...selected.filter(item => !item.startsWith(`${editing}：`)), value]);
+    setEditing(null);
+  }
+  return <div className="standalone-page strategy-builder-page"><PageHeader title="策略选股" onBack={onBack} /><section className="selected-indicators"><b>已选指标 <span>{selected.length}</span></b>{selected.length ? <div>{selected.map(item => <button key={item} onClick={() => onSelected(selected.filter(value => value !== item))}>{item}<X size={14} aria-hidden="true" /></button>)}</div> : <span>点击下方指标添加条件</span>}</section><div className="standalone-scroll indicator-scroll">{indicatorGroups.map(group => <section key={group.title}><h2>{group.title}</h2><div>{group.items.map(item => { const active = selected.some(value => value.startsWith(`${item}：`)); return <button key={item} aria-pressed={active} className={active ? "selected" : ""} onClick={() => setEditing(item)}>{active && <Check size={14} aria-hidden="true" />}{item}</button>; })}</div></section>)}</div><button className="strategy-results-button" disabled={!selected.length} onClick={onResults}>查看选股结果</button>{editing && <div className="condition-dialog-layer"><button className="dialog-backdrop" aria-label="关闭" onClick={() => setEditing(null)}/><section className="condition-dialog" role="dialog" aria-modal="true" aria-label={`选择${editing}条件`}><h2>选择具体条件</h2><p>{editing}</p>{["大于0", "0~20", "20~40", "大于40", "自定义条件"].map(option => { const active = selected.includes(`${editing}：${option}`); return <button key={option} className={active ? "selected" : ""} onClick={() => choose(option)}><i>{active && <Check size={13} aria-hidden="true" />}</i>{option}</button>; })}<footer><button onClick={() => setEditing(null)}>取消</button><button onClick={() => choose("20~40")}>确定</button></footer></section></div>}</div>;
+}
+
+function StrategyResultsPage({ selected, onBack, onOpenStock, onToggleStock, isAdded }: { selected: string[]; onBack: () => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; isAdded: (code: string) => boolean }) {
+  const codes = ["300442", "002230", "603019", "688256", "002371", "603986", "300456", "301232", "601375", "600519"];
+  return <div className="standalone-page strategy-results-page"><PageHeader title="选股结果" onBack={onBack} /><section className="result-conditions"><b>已选指标 <span>共选出{codes.length}只股票</span></b><div>{selected.map(item => <span key={item}>{item}</span>)}</div></section><div className="strategy-result-head"><span>股票/代码</span><span>当前价格</span><span>涨跌幅</span></div><div className="standalone-scroll strategy-result-list">{codes.map(code => { const stock = stockCatalog[code]; const up = stock.change.startsWith("+"); return <article key={code}><button className={`result-add ${isAdded(code) ? "added" : ""}`} onClick={() => onToggleStock(code)} aria-label={isAdded(code) ? `移除${stock.name}自选` : `添加${stock.name}自选`}>{isAdded(code) ? "✓" : "+"}</button><button className="result-stock" onClick={() => onOpenStock(code)}><span><b>{stock.name}</b><small>{stock.code}</small></span><strong>{stock.price}</strong><em className={up ? "up" : "down"}>{stock.change}</em></button></article>; })}</div></div>;
 }
 
 function StockInfoPanel({ title, items }: { title: string; items: string[][] }) {
@@ -884,10 +1151,10 @@ function BottomNav({ active, onNavigate, aiMode = false }: { active: "ai" | Clas
   const quoteActive=active==="quotes"||active==="market";
   const showAiHome = aiMode || active === "ai";
   return <nav className={`bottom-nav ${!showAiHome?"classic-bottom-nav":""}`} aria-label="底部主导航">
-    <button className={active==="ai"||active==="home"?"active":""} aria-current={active==="ai"||active==="home"?"page":undefined} onClick={()=>active!=="ai"&&onNavigate("home")}><i className={`nav-icon ${showAiHome?"nav-ai":"nav-home"}`} aria-hidden="true">{showAiHome?"Ai":""}</i><span>{showAiHome?"小宝":"首页"}</span></button>
-    <button className={quoteActive?"active":""} aria-current={quoteActive?"page":undefined} onClick={()=>onNavigate("quotes")} aria-label="行情"><i className="nav-icon nav-chart" aria-hidden="true"><em /><em /><em /></i><span>行情</span></button>
-    <button className={active==="trade"?"active":""} aria-current={active==="trade"?"page":undefined} onClick={()=>onNavigate("trade")} aria-label="交易"><i className="nav-icon nav-trade" aria-hidden="true" /><span>交易</span></button>
-    <button className={active==="wealth"?"active":""} aria-current={active==="wealth"?"page":undefined} onClick={()=>onNavigate("wealth")} aria-label="理财"><i className="nav-icon nav-wealth" aria-hidden="true"><em /></i><span>理财</span></button>
-    <button className={active==="profile"?"active":""} aria-current={active==="profile"?"page":undefined} onClick={()=>onNavigate("profile")} aria-label="我的"><i className="nav-icon nav-profile" aria-hidden="true"><em /><strong /></i><span>我的</span></button>
+        <button className={active==="ai"||active==="home"?"active":""} aria-current={active==="ai"||active==="home"?"page":undefined} onClick={()=>active!=="ai"&&onNavigate("home")}>{showAiHome ? <img className="bottom-nav-ip" src={ipAssets.welcome} alt="" /> : <HomeIcon size={21} aria-hidden="true" />}<span>{showAiHome?"小原AI助手":"首页"}</span></button>
+    <button className={quoteActive?"active":""} aria-current={quoteActive?"page":undefined} onClick={()=>onNavigate("quotes")} aria-label="行情"><ChartNoAxesCombined size={21} aria-hidden="true" /><span>行情</span></button>
+    <button className={active==="trade"?"active":""} aria-current={active==="trade"?"page":undefined} onClick={()=>onNavigate("trade")} aria-label="交易"><ArrowLeftRight size={21} aria-hidden="true" /><span>交易</span></button>
+    <button className={active==="wealth"?"active":""} aria-current={active==="wealth"?"page":undefined} onClick={()=>onNavigate("wealth")} aria-label="理财"><WalletCards size={21} aria-hidden="true" /><span>理财</span></button>
+    <button className={active==="profile"?"active":""} aria-current={active==="profile"?"page":undefined} onClick={()=>onNavigate("profile")} aria-label="我的"><UserRound size={21} aria-hidden="true" /><span>我的</span></button>
   </nav>;
 }
