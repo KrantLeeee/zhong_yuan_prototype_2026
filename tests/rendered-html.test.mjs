@@ -60,6 +60,9 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.match(page, /来自经典版全局搜索/);
   assert.match(page, /量价齐升的板块能否承接主线地位/);
   assert.doesNotMatch(page, /▣ AI解读/);
+  assert.match(page, /function SourceDrawer/);
+  assert.match(page, /查看数据来源/);
+  assert.match(page, /financial-source-link/);
   assert.match(page, /function StockDetailPage/);
   assert.match(page, /已添加自选 · 去查看/);
   assert.match(page, /function toggleStock/);
@@ -67,6 +70,10 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.match(page, /移除.*自选/);
   assert.match(page, /function StockHighlights/);
   assert.match(page, /市场印象/);
+  assert.match(page, /看点筛选/);
+  assert.match(page, /全部\(\{signals\.length\}\)/);
+  assert.match(page, /小原AI助手基于公开信息整理/);
+  assert.match(page, /ipAssets\.avatar/);
   assert.match(page, /function ArticleDetailPage/);
   assert.match(page, /正在阅读并总结原文/);
   assert.match(page, /streamedInsight/);
@@ -88,6 +95,13 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.doesNotMatch(page, /盘中异动监测完毕/);
   assert.doesNotMatch(page, /className="ai-selection-entry"/);
   assert.match(page, /strategy-card-head/);
+  assert.match(page, /event-timeline/);
+  assert.match(page, /市场点评/);
+  assert.match(page, /daily-market-brief/);
+  assert.match(page, /flash-selection-feed/);
+  assert.doesNotMatch(page, /研报/);
+  assert.doesNotMatch(page, /盘面脉络，一眼看懂|watch-ip-banner|ip-scene-banner/);
+  assert.doesNotMatch(page, /小原小贴士|ip-tip-strip/);
   assert.match(page, /aria-pressed=\{active\}/);
   assert.match(page, /className=\{active \? "selected" : ""\}/);
   assert.match(page, /className="daily-report-entry"/);

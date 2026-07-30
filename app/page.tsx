@@ -3,14 +3,15 @@
 import { FormEvent, TouchEvent, useEffect, useRef, useState } from "react";
 import {
   Activity, ArrowLeft, ArrowLeftRight, ArrowUp, BarChart3, Bell, Bot, BriefcaseBusiness, Building2,
-  CalendarDays, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, CirclePlus,
+  CalendarDays, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, ChevronUp, CirclePlus,
   FileChartColumn, FileText, Grid2X2, Headphones, Home as HomeIcon, Landmark,
   Menu, MessageCircleMore, Mic, MoreHorizontal, Plus, Search, Send, Sparkles,
-  Stethoscope, TrendingUp, UserRound, Volume2, VolumeX, WalletCards, X,
+  Star, Stethoscope, TrendingUp, UserRound, Volume2, VolumeX, WalletCards, X,
 } from "lucide-react";
 
 type Tab = "discover" | "watch" | "select";
 type SelectTab = "hot" | "shape" | "strategy";
+type WatchFeedTab = "全部" | "市场点评" | "盘面播报" | "快讯精选";
 type ClassicView = "home" | "quotes" | "market" | "trade" | "wealth" | "profile";
 type ReasoningMode = "smart" | "fast" | "deep" | "classic";
 type FunctionPageId = "condition-order" | "bank-transfer" | "open-account" | "reverse-repo";
@@ -20,7 +21,7 @@ type AnalysisContext = { title: string; summary: string; points: string[]; meta?
 type ConversationMode = "classic" | "ai";
 type ArticleInfo = {
   id: string;
-  kind: "资讯" | "公告" | "研报";
+  kind: "资讯" | "公告";
   title: string;
   source: string;
   time: string;
@@ -47,7 +48,6 @@ const ipAssets = {
   avatar: "/ip/xiaoyuan-avatar.webp",
   welcome: "/ip/xiaoyuan-welcome.webp",
   daily: "/ip/xiaoyuan-daily.webp",
-  market: "/ip/xiaoyuan-market.webp",
   selection: "/ip/xiaoyuan-selection.webp",
   loading: "/ip/xiaoyuan-loading.webp",
   floating: "/ip/xiaoyuan-floating.webp",
@@ -130,17 +130,6 @@ const articleCatalog: ArticleInfo[] = [
     analysis: ["经营质量：核心产品收入保持韧性，产品结构继续优化。", "股东回报：稳定分红增强长期资金持有意愿。", "风险因素：消费需求变化与渠道价格波动仍需持续跟踪。"],
   },
   {
-    id: "liquor-research",
-    kind: "研报",
-    title: "白酒行业中期策略：需求修复与高质量增长并行",
-    source: "中原证券研究所",
-    time: "09:30",
-    lead: "研报认为行业进入结构性修复阶段，龙头酒企的品牌、渠道和现金流优势进一步凸显。",
-    points: ["高端白酒需求韧性强于行业整体。", "渠道库存逐步回归合理水平。", "建议关注现金流稳定、分红能力突出的龙头公司。"],
-    conclusion: "行业从普遍扩张转向结构分化，具备品牌壁垒和渠道掌控力的龙头更具确定性。",
-    analysis: ["需求侧：宴席与商务场景逐步修复，但价格带表现分化。", "供给侧：酒企主动控货稳价，渠道利润有望改善。", "投资线索：关注高端龙头、区域强势品牌与高股息标的。"],
-  },
-  {
     id: "opec-output",
     kind: "资讯",
     title: "八个欧佩克+国家就提高石油日产量达成原则性协议",
@@ -176,6 +165,47 @@ function matchFunctionIntent(text: string): FunctionPageId | null {
 
 function Mascot() {
   return <div className="mascot"><img src={ipAssets.avatar} alt="小原AI助手形象" /></div>;
+}
+
+type SourceRecord = {
+  title: string;
+  source: string;
+  metrics: { label: string; value: string; tone?: "red" | "blue" }[];
+};
+
+const marketDataSources: SourceRecord[] = [
+  {
+    title: "贵州茅台的营业收入、营业收入增长率、净利润、净利润增长率",
+    source: "贵州茅台2025年年度报告 · 合并利润表",
+    metrics: [
+      { label: "现价(元)", value: "1321.00", tone: "red" },
+      { label: "涨跌幅", value: "0.08%", tone: "red" },
+      { label: "营业收入", value: "539.09亿" },
+    ],
+  },
+  {
+    title: "贵州茅台的净资产收益率、销售净利率、销售毛利率",
+    source: "贵州茅台2025年年度报告 · 主要财务指标",
+    metrics: [
+      { label: "加权ROE", value: "10.57%", tone: "blue" },
+      { label: "销售净利率", value: "52.31%" },
+      { label: "销售毛利率", value: "91.82%" },
+    ],
+  },
+];
+
+function SourceDrawer({ records, onClose }: { records: SourceRecord[]; onClose: () => void }) {
+  return <div className="source-drawer-layer">
+    <button type="button" className="source-drawer-backdrop" aria-label="关闭数据来源" onClick={onClose} />
+    <section className="source-drawer" role="dialog" aria-modal="true" aria-label="数据来源">
+      <header><h2>来源</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={24} aria-hidden="true" /></button></header>
+      <div className="source-drawer-scroll">{records.map((record, index) => <article key={record.title}>
+        <h3>{index + 1}. {record.title}</h3>
+        <p>{record.source}</p>
+        <div className="source-metrics">{record.metrics.map(metric => <span key={metric.label}><small>{metric.label}</small><b className={metric.tone ?? ""}>{metric.value}</b></span>)}</div>
+      </article>)}</div>
+    </section>
+  </div>;
 }
 
 function MiniLine({ down = false }: { down?: boolean }) {
@@ -553,7 +583,7 @@ function DiscoverBanner({ onAction }: { onAction: (message: string) => void }) {
   </section>;
 }
 
-function ConversationContextCard({ context }: { context: AnalysisContext }) {
+function ConversationContextCard({ context, onOpenSources }: { context: AnalysisContext; onOpenSources: () => void }) {
   return <section className="conversation-context-card">
     <header><img src={ipAssets.avatar} alt="" /><span><b>{context.title}</b><small>{context.meta ?? "已从上一页面带入"}</small></span></header>
     <div className="answer-thinking"><i>Ai</i><span><b>已完成信息检索与归纳</b><small>公告 · 财报 · 公司动态</small></span></div>
@@ -561,10 +591,12 @@ function ConversationContextCard({ context }: { context: AnalysisContext }) {
     <div className="answer-highlight"><b>核心结论</b><p>{context.summary}</p></div>
     <ol>{context.points.map(point => <li key={point}>{point}</li>)}</ol>
     <p className="answer-risk">以上由AI根据原型示例数据整理，不构成投资建议。</p>
+    <button className="source-link" type="button" onClick={onOpenSources}>查看数据来源 <sup>1</sup></button>
   </section>;
 }
 
 function Discover({ reply, question, context, onAsk, onBannerAction = () => undefined, onOpenSelection = () => undefined }: { reply: string; question?: string; context?: AnalysisContext | null; onAsk: (text: string) => void; onBannerAction?: (message: string) => void; onOpenSelection?: () => void }) {
+  const [sourceOpen, setSourceOpen] = useState(false);
   const isSelectionConversation = Boolean(question && /选股|ROE|自定义条件/.test(question));
   return <div className="discover-screen screen-scroll">
     <DiscoverBanner onAction={onBannerAction} />
@@ -572,32 +604,44 @@ function Discover({ reply, question, context, onAsk, onBannerAction = () => unde
     <div className="welcome-card">
       <p>今日上证指数温和上涨0.85%，可燃冰板块极端大涨4.77%，显著强于大盘。稳扎稳打～</p>
       <p>👍 当前热点方向明确，我可以帮你梳理核心逻辑。</p>
-      <div className="ip-tip-strip"><span><b>小原小贴士</b><small>重要行情变化与AI能力都可以从这里快速进入</small></span><img src={ipAssets.welcome} alt="" /></div>
     </div>
     <div className="prompt-chips discover-prompts"><button onClick={() => onAsk("大盘压力位在哪")}>大盘压力位在哪</button><button onClick={() => onAsk("市场资金动向")}>市场资金动向</button><button onClick={() => onAsk("量价齐升的板块能否承接主线地位")}>量价齐升的板块能否承接主线地位</button></div>
-    {context && <ConversationContextCard context={context} />}
-    {reply && <>{question && <div className="conversation-question">{question}</div>}<div className="assistant-reply"><div><Mascot /><b>{isSelectionConversation ? "AI定制选股" : "小原AI助手"}</b><small>AI生成 · 已保留对话上下文</small></div><p>{reply}</p>{isSelectionConversation ? <div className="selection-result-preview"><span><b>12</b>只匹配</span><span><b>ROE &gt; 15%</b>核心条件</span><button type="button" onClick={onOpenSelection}>查看选股结果 〉</button></div> : <button>查看数据来源 ¹</button>}</div></>}
+    {context && <ConversationContextCard context={context} onOpenSources={() => setSourceOpen(true)} />}
+    {reply && <>{question && <div className="conversation-question">{question}</div>}<div className="assistant-reply"><div><Mascot /><b>{isSelectionConversation ? "AI定制选股" : "小原AI助手"}</b><small>AI生成 · 已保留对话上下文</small></div><p>{reply}</p>{isSelectionConversation ? <div className="selection-result-preview"><span><b>12</b>只匹配</span><span><b>ROE &gt; 15%</b>核心条件</span><button type="button" onClick={onOpenSelection}>查看选股结果 〉</button></div> : <button className="source-link" type="button" onClick={() => setSourceOpen(true)}>查看数据来源 <sup>1</sup></button>}</div></>}
     {!reply && <p className="ai-disclaimer">以上内容由AI生成，不代表投资立场，且无法保证所有生成内容准确 <span>⌄</span></p>}
+    {sourceOpen && <SourceDrawer records={marketDataSources} onClose={() => setSourceOpen(false)} />}
   </div>;
 }
 
 function Watch({ flash, onOpenArticle }: { flash: (text: string) => void; onOpenArticle: (id: string) => void }) {
+  const [feedTab, setFeedTab] = useState<WatchFeedTab>("全部");
+  const feedTabs: WatchFeedTab[] = ["全部", "市场点评", "盘面播报", "快讯精选"];
   return <div className="watch-screen screen-scroll">
     <div className="index-cards">
       <button onClick={() => flash("跳转上证指数行情")}><b>4162.88</b><span>上证 +0.39%</span><MiniLine /></button>
       <button className="green" onClick={() => flash("跳转深成指数行情")}><b>14495.09</b><span>深成 -0.06%</span><MiniLine down /></button>
       <button className="green" onClick={() => flash("跳转创业板行情")}><b>3310.30</b><span>创指 -1.04%</span><MiniLine down /></button>
     </div>
-    <button className="ip-scene-banner watch-ip-banner" type="button" onClick={() => flash("打开小原看盘分析")}>
-      <span><small>小原看盘</small><b>盘面脉络，一眼看懂</b><em>指数、资金与热点方向实时梳理</em></span><img src={ipAssets.market} alt="" />
-    </button>
     <button className="breadth" onClick={() => flash("打开涨跌分布分析")}><div><span>涨3271 / 涨停91</span><b>实时总成交额 2.51万亿</b></div><div><span>跌2068 / 跌停1</span><b>近60日平均 2.36万亿　<em>6.29%</em></b></div></button>
-    <div className="feed-tabs"><button className="active">全部</button><button>市场观察</button><button>盘面播报</button><button>快讯精选</button><button onClick={() => flash("播放盘面播报")}>▶ 播放</button></div>
-    <div className="news-feed">
+    <div className="feed-tabs">{feedTabs.map(item => <button className={feedTab === item ? "active" : ""} key={item} onClick={() => setFeedTab(item)}>{item}</button>)}<button onClick={() => flash("播放盘面播报")}>▶ 播放</button></div>
+    {feedTab === "全部" && <div className="news-feed">
       <button onClick={() => onOpenArticle("opec-output")}><span>●　2026-03-01 18:40　快讯精选</span><strong>财联社3月1日电，据报道，消息人士称，八个欧佩克+国家已就将石油日产量提高20.6万桶达成原则性协议。</strong><p>据报道，消息人士称，欧佩克+正在讨论将石油日产量上调。</p></button>
       <button onClick={() => onOpenArticle("geopolitical-risk")}><span>●　2026-03-01 18:38　快讯精选</span><strong>地缘事件扰动全球风险偏好，能源与避险资产受关注</strong><p>相关事件持续影响全球风险偏好与能源市场预期。</p></button>
       <button onClick={() => onOpenArticle("market-close")}><span>●　2026-03-01 18:20　盘面播报</span><strong>金融与高股息方向贡献靠前，市场成交保持活跃</strong></button>
-    </div>
+    </div>}
+    {feedTab === "市场点评" && <section className="market-commentary-feed">
+      <header><div><b>市场点评</b><span>内容由运营平台配置，数据接入甲方接口</span></div><button onClick={() => flash("刷新市场点评")}>刷新</button></header>
+      {[['15:18','外交部回应美国实施先进机器人进口限制'],['15:03','A股收评：创业板指震荡走强涨1.55%，全市场超4200只个股上涨'],['14:34','蚂蚁数科开始筹备Pre-IPO轮融资'],['13:54','中国信通院：6月国内市场手机出货量同比下降12.1%'],['13:41','放量！2只双创ETF成交额均突破100亿元']].map(item => <button key={item[0]} onClick={() => onOpenArticle("market-close")}><b>{item[1]}</b><span>{item[0]}</span></button>)}
+    </section>}
+    {feedTab === "盘面播报" && <section className="daily-market-brief">
+      <header><span>每日必读</span><h2>2026年07月29日 星期三</h2><b>盘中 09:30–15:00</b></header>
+      {[['14:50','苹果市值重夺全球“王座”，港股消费电子板块强势反弹','苹果市值登顶带动产业链回暖，港股消费电子板块哪些公司短线领涨？'],['12:28','【午报】科创50半日跌超4%，芯片产业链持续调整，大消费板块逆势走强','早盘市场延续震荡，三大指数小幅收跌，大消费板块表现活跃。'],['10:59','7月ETF净流入4360亿创出年内新高，这个峰值如何看？','宽基ETF吸金居前，资金借道指数产品布局核心资产。']].map(item => <article key={item[0]}><h3><time>{item[0]}</time>{item[1]}</h3><p>{item[2]}</p></article>)}
+    </section>}
+    {feedTab === "快讯精选" && <section className="flash-selection-feed">
+      <nav><button className="active">异动</button><button>公告</button><button>重要</button><button>全部</button><button>A股</button></nav>
+      <h2>2026年07月29日</h2>
+      {[['16:05','常铝股份：控股股东协议转让3.65%股份获国资委批复','常铝股份 +0.80%'],['16:05','东星医疗：回购股份实施完成，累计成交2000万元','东星医疗 -1.20%'],['16:02','安孚科技：首次回购42.39万股，金额1514.68万元','安孚科技 +0.64%']].map(item => <article key={item[1]}><time>{item[0]}</time><h3>{item[1]}</h3><p>公司公告与行情异动信息已由系统实时汇总，点击可查看原文与相关标的。</p><span>{item[2]}</span></article>)}
+    </section>}
   </div>;
 }
 
@@ -959,7 +1003,7 @@ function StockDetailPage({ stock, added, onBack, onToggle, onOpenArticle, flash 
     <nav className="stock-main-tabs">{tabs.map(tab => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</nav>
     <div className="stock-detail-scroll">
       {activeTab === "看点" && <StockHighlights stock={stock} />}
-      {activeTab === "资讯" && <section className="stock-news-list"><header><b>AI精选资讯</b><span>公告 · 研报 · 新闻</span></header>{articleCatalog.map(article => <button key={article.id} onClick={() => onOpenArticle(article.id)}><em>{article.kind}</em><div><b>{article.title}</b><span>{article.source} · {article.time}</span></div><i>〉</i></button>)}</section>}
+      {activeTab === "资讯" && <section className="stock-news-list"><header><b>AI精选资讯</b><span>公告 · 新闻</span></header>{articleCatalog.map(article => <button key={article.id} onClick={() => onOpenArticle(article.id)}><em>{article.kind}</em><div><b>{article.title}</b><span>{article.source} · {article.time}</span></div><i>〉</i></button>)}</section>}
       {activeTab === "盘口" && <><section className={`stock-overview ${down ? "down" : ""}`}><div><strong>{stock.price}</strong><span>{stock.delta}　{stock.change}</span></div><dl><div><dt>高</dt><dd>66.83</dd><dt>低</dt><dd>64.86</dd><dt>开</dt><dd>65.92</dd></div><div><dt>市值</dt><dd>1068.48亿</dd><dt>市盈</dt><dd>20.65</dd><dt>量比</dt><dd>0.76</dd></div></dl></section><nav className="stock-periods"><button className="active">分时</button><button>日K</button><button>周K</button><button>月K</button><button>五日</button><button>更多</button></nav><section className="market-chart"><div className="chart-main"><p><span>均价: 65.94</span>　最新: {stock.price}　{stock.change}</p><svg viewBox="0 0 260 270" preserveAspectRatio="none" aria-label="分时价格走势"><path className="grid" d="M0 45H260M0 135H260M0 225H260M65 0V270M130 0V270M195 0V270"/><path className="average" d="M0 215 C35 155 70 160 105 170 S175 150 260 175"/><path className="price" d="M0 235 L8 190 14 205 20 165 27 182 35 145 43 175 52 130 61 166 70 138 78 190 86 154 95 171 104 112 112 158 122 142 132 184 143 169 152 205 162 187 174 221 186 208 198 236 210 223 221 239 232 218 244 246 260 258"/></svg><small>09:30　　　　　　　　　11:30　　　　　　　　15:00</small></div><div className="order-book">{prices.map((price,index) => <p key={`${price}-${index}`}><span>{index < 5 ? `卖${5-index}` : `买${index-4}`}</span><b>{price}</b><i>{[44,10,64,32,59,34,50,19,31,50][index]}</i></p>)}</div></section></>}
       {activeTab === "简况(F10)" && <StockInfoPanel title="公司简况" items={[["所属行业","软件和信息技术服务"],["总市值","1068.48亿元"],["主营业务","数据中心、云计算与数字化服务"],["上市日期","2022-04-21"]]} />}
       {activeTab === "诊股" && <StockInfoPanel title="AI诊股评分" items={[["综合评分","78分 · 优于行业72%公司"],["趋势强度","中性偏强"],["资金状态","近5日主力净流入"],["风险等级","中等"]]} />}
@@ -970,17 +1014,35 @@ function StockDetailPage({ stock, added, onBack, onToggle, onOpenArticle, flash 
 }
 
 function StockHighlights({ stock }: { stock: StockInfo }) {
-  const highlights = [
-    { title: "行业景气延续，核心业务具备增长韧性", impact: 5, text: `${stock.name}所属方向近期政策与产业催化密集，公司核心业务与行业需求深度绑定，订单和收入弹性值得关注。` },
-    { title: "业绩稳健增长，盈利质量持续改善", impact: 4, text: "最新披露期营业收入和净利润保持增长，经营现金流同步改善，基本面对股价形成支撑。" },
-    { title: "主力资金出现阶段性净流入", impact: 5, text: "近5个交易日主动买盘增强，成交活跃度高于近20日均值，但短线波动可能随之放大。" },
-    { title: "技术形态处于关键位置", impact: 3, text: "股价正在测试前期成交密集区，若量能延续，可继续观察突破有效性。" },
+  const [filter, setFilter] = useState<"all" | "highlight" | "risk">("all");
+  const signals = [
+    { type: "highlight" as const, title: "行业景气延续，核心业务具备增长韧性", impact: 5, text: `${stock.name}所属方向近期政策与产业催化密集，公司核心业务与行业需求深度绑定，订单和收入弹性值得关注。` },
+    { type: "highlight" as const, title: "业绩稳健增长，盈利质量持续改善", impact: 4, text: "最新披露期营业收入和净利润保持增长，经营现金流同步改善，基本面对股价形成支撑。" },
+    { type: "highlight" as const, title: "主力资金出现阶段性净流入", impact: 5, text: "近5个交易日主动买盘增强，成交活跃度高于近20日均值，资金关注度处于阶段高位。" },
+    { type: "highlight" as const, title: "技术形态处于关键位置", impact: 3, text: "股价正在测试前期成交密集区，若量能延续，可继续观察突破有效性。" },
+    { type: "risk" as const, title: "短线涨幅较大，波动可能加剧", impact: 4, text: "当前估值与交易拥挤度有所提升，若行业催化不及预期，股价可能出现较大波动。" },
+    { type: "risk" as const, title: "盈利兑现仍需后续数据验证", impact: 3, text: "部分业务增量尚处于投入和爬坡阶段，订单向收入及利润的转化节奏需要持续跟踪。" },
+    { type: "risk" as const, title: "行业竞争加剧或影响盈利空间", impact: 3, text: "同业扩张可能带来价格和费用压力，公司后续毛利率表现仍存在不确定性。" },
   ];
+  const highlights = signals.filter(item => item.type === "highlight");
+  const risks = signals.filter(item => item.type === "risk");
+  const visibleSignals = filter === "all" ? signals : signals.filter(item => item.type === filter);
   return <div className="stock-highlights">
-    <div className="highlight-summary"><img src={ipAssets.report} alt=""/><b>今日{stock.name}，包含<span>3</span>个风险，<em>4</em>个亮点</b></div>
+    <div className="highlight-summary"><img src={ipAssets.avatar} alt="小原AI助手"/><div><small>小原AI助手</small><b>今日{stock.name}，包含<span>{risks.length}</span>个风险，<em>{highlights.length}</em>个亮点</b></div></div>
     <section className="market-impression"><h2>市场印象</h2><p>{stock.name}是所在行业的核心公司，业务具备较强竞争壁垒。当前市场关注点集中在行业景气、盈利兑现和资金承接，短期弹性与波动并存。</p></section>
-    {highlights.map(item => <article className="highlight-card" key={item.title}><h3><span>亮点</span>{item.title}<i>⌃</i></h3><div className="impact-stars"><small>影响度</small><b>{"★★★★★".slice(0,item.impact)}<em>{"★★★★★".slice(item.impact)}</em></b></div><p>{item.text}</p></article>)}
-    <article className="highlight-card risk"><h3><span>风险</span>短线涨幅较大，注意波动风险<i>⌃</i></h3><div className="impact-stars"><small>影响度</small><b>★★★★<em>★</em></b></div><p>当前估值与交易拥挤度均有所提升，若行业催化不及预期，股价可能出现较大回撤。</p></article>
+    <section className="highlight-filter-panel">
+      <nav aria-label="看点筛选">
+        <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>全部({signals.length})</button>
+        <button className={filter === "highlight" ? "active" : ""} onClick={() => setFilter("highlight")}>亮点({highlights.length})</button>
+        <button className={filter === "risk" ? "active" : ""} onClick={() => setFilter("risk")}>风险({risks.length})</button>
+      </nav>
+      <p>以下个股亮点和风险由小原AI助手基于公开信息整理，仅供参考，不构成投资建议。股市有风险，投资需谨慎。</p>
+    </section>
+    <div className="highlight-list">{visibleSignals.map(item => <article className={`highlight-card ${item.type === "risk" ? "risk" : ""}`} key={item.title}>
+      <h3><span>{item.type === "risk" ? "风险" : "亮点"}</span>{item.title}<ChevronUp size={16} aria-hidden="true" /></h3>
+      <div className="impact-stars"><small>影响度</small><b aria-label={`影响度${item.impact}星`}>{Array.from({ length: 5 }, (_, index) => <Star key={index} size={15} fill={index < item.impact ? "currentColor" : "none"} className={index < item.impact ? "active" : ""} aria-hidden="true" />)}</b></div>
+      <p>{item.text}</p>
+    </article>)}</div>
   </div>;
 }
 
@@ -1034,6 +1096,27 @@ function FinancialReportReader({ stock, reportTitle = `${stock.name} · 2025年�
   const [qaQuestion, setQaQuestion] = useState("");
   const [qaPhase, setQaPhase] = useState<"idle" | "thinking" | "streaming" | "done">("idle");
   const [qaText, setQaText] = useState("");
+  const [qaSourcesOpen, setQaSourcesOpen] = useState(false);
+  const financialSources: SourceRecord[] = [
+    {
+      title: `${reportTitle}中的营业收入、净利润及同比变化`,
+      source: `${reportTitle} · 第三节 管理层讨论与分析（第32页）`,
+      metrics: [
+        { label: "营业收入", value: "44.62亿元", tone: "red" },
+        { label: "同比增长", value: "17.42%", tone: "red" },
+        { label: "归母净利润", value: "5.67亿元" },
+      ],
+    },
+    {
+      title: `${reportTitle}中的现金流和盈利质量指标`,
+      source: `${reportTitle} · 合并现金流量表（第88页）`,
+      metrics: [
+        { label: "经营现金流", value: "+26.20%", tone: "blue" },
+        { label: "销售毛利率", value: "31.68%" },
+        { label: "净利润增长", value: "5.43%" },
+      ],
+    },
+  ];
   const qaAnswer = qaQuestion.includes("营业额")
     ? "报告期内公司实现营业收入44.62亿元，同比增长17.42%。收入增长主要来自数据中心服务和云计算业务，主营业务延续稳健增长。"
     : qaQuestion.includes("股东")
@@ -1072,7 +1155,8 @@ function FinancialReportReader({ stock, reportTitle = `${stock.name} · 2025年�
     <nav className="financial-tabs"><button className={tab === "guide" ? "active" : ""} onClick={() => setTab("guide")}>内容导读</button><button className={tab === "document" ? "active" : ""} onClick={() => setTab("document")}>正文</button><button className={tab === "qa" ? "active" : ""} onClick={() => setTab("qa")}>财报问答</button></nav>
     {tab === "guide" && <div className="financial-guide"><section><h2>业绩概览</h2><p>报告期内，公司实现营业收入<b>44.62亿元</b>，同比增长<b>17.42%</b>；归母净利润达到<b>5.67亿元</b>，同比增长<b>5.43%</b>。经营活动产生的现金流量净额同比增长<b>26.20%</b>，主营业务盈利增长具备现金流支撑。</p></section><section><h2>营业收入结构</h2><h3>按业务分类</h3><div className="financial-table"><b>业务板块</b><b>营业收入</b><b>同比变化</b><b>毛利率</b><span>数据中心服务</span><span>21.47亿</span><em>+22.61%</em><span>31.68%</span><span>云计算服务</span><span>13.18亿</span><em>+15.98%</em><span>36.46%</span><span>数字化解决方案</span><span>9.97亿</span><em>+8.27%</em><span>40.65%</span></div></section><section className="financial-observation"><h2>AI观察</h2><p>收入增速与现金流同步改善，说明增长质量较为稳健；后续重点关注资本开支兑现与毛利率变化。</p><button onClick={() => askFinancial("这份财报最值得关注的风险是什么？")}>继续提问</button></section></div>}
     {tab === "document" && <div className="report-document"><div className="document-tools"><button>−</button><span>缩放：100%</span><button>＋</button></div><article className="report-cover"><i>中原证券</i><h2>{stock.name}</h2><h3>2025年年度报告</h3><span>证券代码 {stock.code}</span><div className="report-illustration"><b /><b /><b /></div><p>{stock.name}股份有限公司</p></article><article className="report-page-preview"><h3>公司年度大事记</h3><div><span /><span /></div><p>报告期内，公司围绕主营业务持续推进产品升级与市场拓展，核心经营指标保持稳定增长。</p></article></div>}
-    {tab === "qa" && <div className="financial-qa"><div className={`financial-qa-hero ${qaQuestion ? "compact" : ""}`}><img src={ipAssets.report} alt="小原AI助手"/><h2>Hi，我是小原AI助手</h2><p>你可以询问我关于这份报告的相关问题</p></div>{qaQuestion && <section className="financial-qa-current" aria-live="polite"><p className="financial-qa-question">{qaQuestion}</p><div className="financial-qa-answer"><header><img src={ipAssets.avatar} alt=""/><b>小原AI助手</b></header>{qaPhase === "thinking" ? <div className="financial-qa-thinking"><img src={ipAssets.loading} alt=""/><span>正在结合当前财报分析...</span></div> : <p>{qaText}<i className={qaPhase === "streaming" ? "stream-cursor" : ""}/></p>}</div></section>}<div className="financial-suggestions">{["公司的营业额", "公司的股东信息", "公司的董事长是谁"].map(question => <button key={question} onClick={() => askFinancial(question)}>{question}</button>)}</div><form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) askFinancial(draft.trim()); }}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入内容" aria-label="财报问题"/><button type="submit" aria-label="发送"><ArrowUp size={18} aria-hidden="true"/></button></form></div>}
+    {tab === "qa" && <div className="financial-qa"><div className={`financial-qa-hero ${qaQuestion ? "compact" : ""}`}><img src={ipAssets.report} alt="小原AI助手"/><h2>Hi，我是小原AI助手</h2><p>你可以询问我关于这份报告的相关问题</p></div>{qaQuestion && <section className="financial-qa-current" aria-live="polite"><p className="financial-qa-question">{qaQuestion}</p><div className="financial-qa-answer"><header><img src={ipAssets.avatar} alt=""/><b>小原AI助手</b></header>{qaPhase === "thinking" ? <div className="financial-qa-thinking"><img src={ipAssets.loading} alt=""/><span>正在结合当前财报分析...</span></div> : <><p>{qaText}<i className={qaPhase === "streaming" ? "stream-cursor" : ""}/></p>{qaPhase === "done" && <button className="financial-source-link" type="button" onClick={() => setQaSourcesOpen(true)}>来源 <sup>1</sup></button>}</>}</div></section>}<div className="financial-suggestions">{["公司的营业额", "公司的股东信息", "公司的董事长是谁"].map(question => <button key={question} onClick={() => askFinancial(question)}>{question}</button>)}</div><form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) askFinancial(draft.trim()); }}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入内容" aria-label="财报问题"/><button type="submit" aria-label="发送"><ArrowUp size={18} aria-hidden="true"/></button></form></div>}
+    {qaSourcesOpen && <SourceDrawer records={financialSources} onClose={() => setQaSourcesOpen(false)} />}
   </section>;
 }
 
@@ -1100,8 +1184,9 @@ const hotTopicData = [
 ];
 
 function HotTopicsPage({ active, onActive, onBack, onOpenStock, onToggleStock, isAdded }: { active: string; onActive: (name: string) => void; onBack: () => void; onOpenStock: (code: string) => void; onToggleStock: (code: string) => void; isAdded: (code: string) => boolean }) {
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const topic = hotTopicData.find(item => item.name === active) ?? hotTopicData[0];
-  return <div className={`standalone-page hot-topics-page grade-${topic.grade.toLowerCase()}`}><PageHeader title="股票热点题材" onBack={onBack} /><nav className="topic-tabs">{hotTopicData.map(item => <button className={item.name === topic.name ? "active" : ""} onClick={() => onActive(item.name)} key={item.name}>{item.name}</button>)}</nav><div className="standalone-scroll"><section className="topic-hero"><div><h1>{topic.name}</h1><span className={`topic-level grade-${topic.grade.toLowerCase()}`}><b>{topic.grade}</b>{topic.level}</span></div><p><b>AI解读</b>{topic.insight}</p></section><section className="topic-stocks"><header><h2>相关热股</h2><button>事件脉络 〉</button></header><div className="topic-metrics"><span>涨跌比例<b>{topic.metrics[0]}</b></span><span>涨停家数(家)<b>{topic.metrics[1]}</b></span><span>主力资金(亿)<b>{topic.metrics[2]}</b></span></div>{topic.stocks.map(code => { const stock = stockCatalog[code]; return <article key={code}><button className="topic-stock-main" onClick={() => onOpenStock(code)}><span><b>{stock.name}</b><small>{stock.market ?? "主题相关标的"}</small></span><strong>{stock.change}</strong></button><button className={`topic-add ${isAdded(code) ? "added" : ""}`} onClick={() => onToggleStock(code)}>{isAdded(code) ? "已自选" : "加自选"}</button><p><b>AI解读</b>{stock.name}受益于{topic.name}方向的产业催化，近期资金关注度提升，仍需留意短线波动。</p></article>; })}</section></div></div>;
+  return <div className={`standalone-page hot-topics-page grade-${topic.grade.toLowerCase()}`}><PageHeader title="股票热点题材" onBack={onBack} /><nav className="topic-tabs">{hotTopicData.map(item => <button className={item.name === topic.name ? "active" : ""} onClick={() => onActive(item.name)} key={item.name}>{item.name}</button>)}</nav><div className="standalone-scroll"><section className="topic-hero"><div><h1>{topic.name}</h1><span className={`topic-level grade-${topic.grade.toLowerCase()}`}><b>{topic.grade}</b>{topic.level}</span></div><p><b>AI解读</b>{topic.insight}</p></section><section className="topic-stocks"><header><h2>相关热股</h2><button onClick={() => setTimelineOpen(true)}>事件脉络 〉</button></header><div className="topic-metrics"><span>涨跌比例<b>{topic.metrics[0]}</b></span><span>涨停家数(家)<b>{topic.metrics[1]}</b></span><span>主力资金(亿)<b>{topic.metrics[2]}</b></span></div>{topic.stocks.map(code => { const stock = stockCatalog[code]; return <article key={code}><button className="topic-stock-main" onClick={() => onOpenStock(code)}><span><b>{stock.name}</b><small>{stock.market ?? "主题相关标的"}</small></span><strong>{stock.change}</strong></button><button className={`topic-add ${isAdded(code) ? "added" : ""}`} onClick={() => onToggleStock(code)}>{isAdded(code) ? "已自选" : "加自选"}</button><p><b>AI解读</b>{stock.name}受益于{topic.name}方向的产业催化，近期资金关注度提升，仍需留意短线波动。</p></article>; })}</section></div>{timelineOpen && <div className="event-timeline-layer"><button type="button" className="event-timeline-backdrop" aria-label="关闭事件脉络" onClick={() => setTimelineOpen(false)} /><section className="event-timeline" role="dialog" aria-modal="true" aria-label={`${topic.name}事件脉络`}><header><h2>事件脉络</h2><button onClick={() => setTimelineOpen(false)} aria-label="关闭"><X size={24} aria-hidden="true" /></button></header><p>相关事件脉络根据市场公开信息产生，仅供参考，不构成投资建议。历史信息不代表未来表现，市场有风险，投资需谨慎。</p><ol><li><time>26.07.26 08:00</time><b>{topic.name}产业链二季度订单与利润预期上调，核心环节景气度创阶段新高。</b></li><li><time>26.07.24 08:00</time><b>多家产业链公司披露长期合作进展，市场关注度与资金活跃度同步提升。</b></li><li><time>26.07.18 10:30</time><b>主管部门发布相关产业支持政策，重点项目建设节奏进一步明确。</b></li></ol></section></div>}</div>;
 }
 
 const shapeNames = ["攻击迫线", "红杏出墙", "三阳不吃一阴", "双十字星", "大阳包大阴", "剧涨并排红", "串阳K线", "八仙过海", "绝处逢生", "笑里藏刀", "立竿见影", "九九艳阳天"];
