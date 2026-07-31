@@ -99,10 +99,18 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.match(page, /function StockFinancialOverview/);
   assert.match(page, /function FinancialReportListPage/);
   assert.match(page, /reportTitle=\{selectedReport\}/);
+  assert.match(page, /function FinancialGuide/);
+  assert.match(page, /财报摘要/);
+  assert.match(page, /业绩摘要/);
+  assert.match(page, /题材挖掘/);
+  assert.match(page, /关键财务数据/);
+  assert.match(page, /当前估值分析/);
+  assert.match(page, /guide-valuation-chart/);
   assert.doesNotMatch(page, /financial-observation|AI观察|继续提问/);
   assert.match(page, /financial-qa-current/);
   assert.match(page, /正在结合当前财报分析/);
   assert.doesNotMatch(page, /FinancialAssistantPage\(\{ onBack, onContinue/);
+  assert.doesNotMatch(page, /关键业绩与现金流概览|业务结构和盈利质量解读|围绕财报继续问答/);
   assert.doesNotMatch(page, /盘中异动监测完毕/);
   assert.doesNotMatch(page, /className="ai-selection-entry"/);
   assert.match(page, /strategy-card-head/);

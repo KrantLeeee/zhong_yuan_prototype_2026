@@ -1086,6 +1086,34 @@ function FinancialReportListPage({ stock, onBack, onSelect }: { stock: StockInfo
   </div>;
 }
 
+type ReportMetricKey = "netProfit" | "adjustedProfit" | "revenue" | "grossMargin";
+
+const reportMetrics: Record<ReportMetricKey, { name: string; value: string; change: string; tag: string; unit: string; values: number[]; max: number }> = {
+  netProfit: { name: "归母净利润", value: "2.56亿", change: "+112.58%", tag: "显著增长", unit: "亿", values: [1.2, 2.56], max: 3 },
+  adjustedProfit: { name: "扣非净利润", value: "2.50亿", change: "+122.58%", tag: "显著增长", unit: "亿", values: [1.13, 2.5], max: 3 },
+  revenue: { name: "营业收入", value: "10.53亿", change: "+40.81%", tag: "稳定增长", unit: "亿", values: [7.48, 10.53], max: 12 },
+  grossMargin: { name: "毛利率", value: "84.99%", change: "+0.82%", tag: "稳定增长", unit: "%", values: [84.17, 84.99], max: 100 },
+};
+
+function FinancialGuide({ stock }: { stock: StockInfo }) {
+  const [metricKey, setMetricKey] = useState<ReportMetricKey>("netProfit");
+  const metric = reportMetrics[metricKey];
+  const metricKeys = Object.keys(reportMetrics) as ReportMetricKey[];
+
+  return <div className="financial-guide">
+    <section className="guide-summary"><h2>财报摘要</h2><p>2026年一季度，{stock.name}实现营业收入 <b>10.53亿元</b>，同比增长 <b>40.81%</b>；归母净利润 <b>2.56亿元</b>，同比增长 <b>112.58%</b>；扣非净利润 <b>2.50亿元</b>，同比增长 <b>122.58%</b>。经营现金流净额 <b>8.39亿元</b>，同比增长 <b>167.75%</b>。</p></section>
+    <section><h2>业绩摘要</h2><ul className="guide-summary-list"><li><b>市场需求增加：</b>资本市场持续活跃，用户对金融信息服务需求增加，推动营业收入上升。</li><li><b>产品竞争力提升：</b>产品与大模型技术深度融合，有助于提升收入和盈利能力。</li><li><b>销售收款增强：</b>经营现金流大幅增加，主要来自销售收款增加，业务回款能力提升。</li><li><b>政府补助贡献：</b>本期获得一定金额的政府补助，对当期利润产生正面影响。</li></ul>
+      <div className="guide-metric-grid">{metricKeys.map(key => { const item = reportMetrics[key]; return <button type="button" key={key} className={metricKey === key ? "active" : ""} aria-pressed={metricKey === key} onClick={() => setMetricKey(key)}><span>{item.name}<em>{item.tag}</em></span><strong>{item.value}</strong><small>同比 <b>{item.change}</b></small></button>; })}</div>
+      <p className="guide-conclusion">“{metric.name}同比增长{metric.change.replace("+", "")}”</p>
+      <div className="guide-bar-chart" aria-label={`${metric.name}趋势柱状图`} role="img"><div className="guide-chart-grid"><i/><i/><i/></div>{metric.values.map((value, index) => <span key={`${metricKey}-${index}`}><b>{value.toFixed(2)}{metric.unit}</b><i style={{ height: `${Math.max(8, value / metric.max * 112)}px` }} /><small>{index === 0 ? "2025 Q1" : "2026 Q1"}</small></span>)}</div>
+    </section>
+    <section><h2>题材挖掘</h2><p className="guide-muted">基于{stock.name}近半年的上涨动因，小原AI从2026年一季报中整理出以下相关概念：</p><div className="guide-topic-list"><article><header><b>互联网金融</b><span>总结自一季报</span></header><p>互联网金融业务营收增长，运营现金流显著提升。</p></article><article><header><b>人工智能</b><span>总结自一季报</span></header><p>AI融合产品提高竞争力，带动营收显著增长。</p></article></div><small className="guide-ai-note">内容由AI生成</small></section>
+    <section><h2>关键财务数据 <small>单位：元</small></h2><div className="guide-key-grid"><article><span>归母净利润</span><strong>2.56亿</strong><small>同比 <b>+112.58%</b></small></article><article><span>扣非净利润</span><strong>2.50亿</strong><small>同比 <b>+122.58%</b></small></article></div><div className="guide-paired-chart" role="img" aria-label="关键财务数据柱状图"><div><i style={{height:"48px"}}/><em style={{height:"45px"}}/><small>2025 Q1</small></div><div><i style={{height:"102px"}}/><em style={{height:"99px"}}/><small>2026 Q1</small></div></div></section>
+    <section><h2>当前估值分析</h2><p className="guide-valuation-summary">基于{stock.name}2026年一季报披露数据，公司最近四个季度归母净利润之和为9.49亿元，公告前一个交易日市值约1622.39亿元，市盈率TTM约170.95。</p><header className="guide-valuation-head"><h3>估值走势</h3><span>同行业对比</span></header><div className="guide-line-legend"><span className="red">70分位值</span><span className="green">30分位值</span><span className="blue">市盈率TTM</span></div><svg className="guide-valuation-chart" viewBox="0 0 340 170" role="img" aria-label="估值走势图"><path className="grid" d="M12 24H328M12 83H328M12 142H328"/><path className="upper" d="M12 57H328"/><path className="lower" d="M12 118H328"/><path className="value" d="M12 73 L36 78 L60 75 L84 84 L108 91 L132 98 L156 109 L180 116 L204 122 L228 129 L252 133 L276 126 L302 121 L328 117"/><text x="12" y="163">2025-07</text><text x="328" y="163" textAnchor="end">2026-04</text></svg></section>
+    <p className="guide-disclaimer">免责声明：以上信息仅供参考，数据请以上市公司公告及法定信息披露媒体为准。</p>
+  </div>;
+}
+
 function FinancialReportReader({ stock, reportTitle = `${stock.name} · 2025年年度报告`, compact = false }: { stock: StockInfo; reportTitle?: string; compact?: boolean }) {
   const [tab, setTab] = useState<FinancialTab>("guide");
   const [draft, setDraft] = useState("");
@@ -1149,7 +1177,7 @@ function FinancialReportReader({ stock, reportTitle = `${stock.name} · 2025年�
   return <section className={`financial-reader ${compact ? "compact" : ""}`}>
     <header className="financial-title"><div><b>{reportTitle}</b><span>{stock.code} · AI财报分析解读</span></div></header>
     <nav className="financial-tabs"><button className={tab === "guide" ? "active" : ""} onClick={() => setTab("guide")}>内容导读</button><button className={tab === "document" ? "active" : ""} onClick={() => setTab("document")}>正文</button><button className={tab === "qa" ? "active" : ""} onClick={() => setTab("qa")}>财报问答</button></nav>
-    {tab === "guide" && <div className="financial-guide"><section><h2>业绩概览</h2><p>报告期内，公司实现营业收入<b>44.62亿元</b>，同比增长<b>17.42%</b>；归母净利润达到<b>5.67亿元</b>，同比增长<b>5.43%</b>。经营活动产生的现金流量净额同比增长<b>26.20%</b>，主营业务盈利增长具备现金流支撑。</p></section><section><h2>营业收入结构</h2><h3>按业务分类</h3><div className="financial-table"><b>业务板块</b><b>营业收入</b><b>同比变化</b><b>毛利率</b><span>数据中心服务</span><span>21.47亿</span><em>+22.61%</em><span>31.68%</span><span>云计算服务</span><span>13.18亿</span><em>+15.98%</em><span>36.46%</span><span>数字化解决方案</span><span>9.97亿</span><em>+8.27%</em><span>40.65%</span></div></section></div>}
+    {tab === "guide" && <FinancialGuide stock={stock} />}
     {tab === "document" && <div className="report-document"><div className="document-tools"><button>−</button><span>缩放：100%</span><button>＋</button></div><article className="report-cover"><i>中原证券</i><h2>{stock.name}</h2><h3>2025年年度报告</h3><span>证券代码 {stock.code}</span><div className="report-illustration"><b /><b /><b /></div><p>{stock.name}股份有限公司</p></article><article className="report-page-preview"><h3>公司年度大事记</h3><div><span /><span /></div><p>报告期内，公司围绕主营业务持续推进产品升级与市场拓展，核心经营指标保持稳定增长。</p></article></div>}
     {tab === "qa" && <div className="financial-qa"><div className={`financial-qa-hero ${qaQuestion ? "compact" : ""}`}><img src={ipAssets.report} alt="小原AI助手"/><h2>Hi，我是小原AI助手</h2><p>你可以询问我关于这份报告的相关问题</p></div>{qaQuestion && <section className="financial-qa-current" aria-live="polite"><p className="financial-qa-question">{qaQuestion}</p><div className="financial-qa-answer"><header><img src={ipAssets.avatar} alt=""/><b>小原AI助手</b></header>{qaPhase === "thinking" ? <div className="financial-qa-thinking"><img src={ipAssets.loading} alt=""/><span>正在结合当前财报分析...</span></div> : <><p>{qaText}<i className={qaPhase === "streaming" ? "stream-cursor" : ""}/></p>{qaPhase === "done" && <button className="financial-source-link" type="button" onClick={() => setQaSourcesOpen(true)}>来源 <sup>1</sup></button>}</>}</div></section>}<div className="financial-suggestions">{["公司的营业额", "公司的股东信息", "公司的董事长是谁"].map(question => <button key={question} onClick={() => askFinancial(question)}>{question}</button>)}</div><form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) askFinancial(draft.trim()); }}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入内容" aria-label="财报问题"/><button type="submit" aria-label="发送"><ArrowUp size={18} aria-hidden="true"/></button></form></div>}
     {qaSourcesOpen && <SourceDrawer records={financialSources} onClose={() => setQaSourcesOpen(false)} />}
@@ -1168,7 +1196,7 @@ function FinancialAssistantPage({ onBack }: { onBack: () => void }) {
     setStock(match);
   }
   if (stock && !report) return <FinancialReportListPage stock={stock} onBack={() => setStock(null)} onSelect={setReport} />;
-  return <div className="standalone-page financial-assistant-page"><PageHeader title={report ? "AI财报分析" : "财报助手"} onBack={report ? () => setReport("") : onBack} />{stock && report ? <div className="standalone-scroll"><FinancialReportReader stock={stock} reportTitle={report} /></div> : <div className="financial-assistant-entry"><img src={ipAssets.report} alt="小原AI助手"/><h1>小原AI财报助手</h1><p>提炼关键指标、增长动力与潜在风险，帮助你快速读懂上市公司财报。</p><ul><li>关键业绩与现金流概览</li><li>业务结构和盈利质量解读</li><li>围绕财报继续问答</li></ul><form onSubmit={submitStock}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入股票名称或代码" aria-label="输入股票名称或代码"/><button type="submit">选择财报</button></form><small>示例可输入：贵州茅台、润泽科技</small></div>}</div>;
+  return <div className="standalone-page financial-assistant-page"><PageHeader title={report ? "AI财报分析" : "财报助手"} onBack={report ? () => setReport("") : onBack} />{stock && report ? <div className="standalone-scroll"><FinancialReportReader stock={stock} reportTitle={report} /></div> : <div className="financial-assistant-entry"><img src={ipAssets.report} alt="小原AI助手"/><h1>小原AI财报助手</h1><p>提炼关键指标、增长动力与潜在风险，帮助你快速读懂上市公司财报。</p><form onSubmit={submitStock}><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="请输入股票名称或代码" aria-label="输入股票名称或代码"/><button type="submit">选择财报</button></form><small>示例可输入：贵州茅台、润泽科技</small></div>}</div>;
 }
 
 const hotTopicData = [
