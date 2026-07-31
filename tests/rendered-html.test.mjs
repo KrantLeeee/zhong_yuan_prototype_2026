@@ -99,6 +99,7 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.match(page, /function StockFinancialOverview/);
   assert.match(page, /function FinancialReportListPage/);
   assert.match(page, /reportTitle=\{selectedReport\}/);
+  assert.doesNotMatch(page, /financial-observation|AI观察|继续提问/);
   assert.match(page, /financial-qa-current/);
   assert.match(page, /正在结合当前财报分析/);
   assert.doesNotMatch(page, /FinancialAssistantPage\(\{ onBack, onContinue/);
