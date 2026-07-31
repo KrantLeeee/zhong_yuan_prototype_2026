@@ -29,7 +29,6 @@ type ArticleInfo = {
   points: string[];
   conclusion: string;
   analysis: string[];
-  followUps?: string[];
 };
 
 const topTabs: { id: Tab; label: string }[] = [
@@ -116,7 +115,6 @@ const articleCatalog: ArticleInfo[] = [
     points: ["沪指上涨0.47%，两市成交保持活跃。", "能源与避险资产获得资金集中关注。", "AI应用方向分化，后续仍需观察量能承接。"],
     conclusion: "地缘事件与能源价格变化推动资金重新定价，能源、贵金属和高股息方向短期占优。",
     analysis: ["事件触发：海外风险升温抬高原油和黄金的风险溢价。", "产业传导：上游资源品盈利预期改善，航运和化工成本端承压。", "市场映射：资金偏好由高弹性题材转向业绩确定性与防御资产。"],
-    followUps: ["能源板块还能持续多久？", "哪些行业受油价上涨影响？", "当前资金在关注什么？"],
   },
   {
     id: "moutai-announcement",
@@ -139,7 +137,6 @@ const articleCatalog: ArticleInfo[] = [
     points: ["增产规模仍需等待正式会议确认。", "供应增加预期短期压制油价风险溢价。", "油服、化工、航运等板块可能出现分化。"],
     conclusion: "增产预期将影响原油供需定价，但地缘风险仍可能放大价格波动，需结合正式协议与后续执行节奏判断。",
     analysis: ["供应端：新增产量可能缓解阶段性供给紧张。", "行业端：上游盈利预期和下游成本改善方向分化。", "市场端：能源股表现将更依赖油价与资金风险偏好。"],
-    followUps: ["增产对A股哪些行业有影响？", "油价接下来怎么看？", "有哪些相关上市公司？"],
   },
   {
     id: "geopolitical-risk",
@@ -151,7 +148,6 @@ const articleCatalog: ArticleInfo[] = [
     points: ["避险情绪短期升温。", "原油与黄金价格波动加大。", "A股资金偏好可能向防御方向切换。"],
     conclusion: "事件本身仍有不确定性，短期重点观察油价、黄金和北向资金变化，不宜仅凭单一消息追涨。",
     analysis: ["风险偏好：高估值成长板块波动可能放大。", "资产映射：能源、黄金与军工更受关注。", "验证指标：持续跟踪官方信息和商品价格。"],
-    followUps: ["地缘风险如何影响A股？", "哪些避险板块值得关注？", "市场情绪会持续多久？"],
   },
 ];
 
@@ -238,7 +234,6 @@ export default function Home() {
   const [standalonePage, setStandalonePage] = useState<StandalonePage>(null);
   const [selectedStock, setSelectedStock] = useState<StockInfo | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<ArticleInfo | null>(null);
-  const [articleConversationMode, setArticleConversationMode] = useState<ConversationMode>("ai");
   const [conversationContext, setConversationContext] = useState<AnalysisContext | null>(null);
   const [selectedHotTopic, setSelectedHotTopic] = useState("算力基建");
   const [selectedShape, setSelectedShape] = useState("攻击迫线");
@@ -340,12 +335,9 @@ export default function Home() {
     setSelectedStock(stockCatalog[code] ?? stockCatalog["300442"]);
   }
 
-  function openArticle(id: string, mode: ConversationMode = classic ? "classic" : "ai") {
+  function openArticle(id: string) {
     const article = articleCatalog.find(item => item.id === id);
-    if (article) {
-      setArticleConversationMode(mode);
-      setSelectedArticle(article);
-    }
+    if (article) setSelectedArticle(article);
   }
 
   function openFunction(id: FunctionPageId, backToSearch = false) {
@@ -441,13 +433,13 @@ export default function Home() {
           <div className="status"><b>{classic ? "20:41" : "9:03"}</b><span>▮▮▮ {classic ? "5G" : "4G"}　▰</span></div>
 
           {selectedArticle ? (
-            <ArticleDetailPage article={selectedArticle} onBack={() => setSelectedArticle(null)} onContinue={(question) => openConversation(articleConversationMode, question)} />
+            <ArticleDetailPage article={selectedArticle} onBack={() => setSelectedArticle(null)} />
           ) : selectedStock ? (
             <StockDetailPage stock={selectedStock} added={watchlist.includes(selectedStock.code)} onBack={() => setSelectedStock(null)} onToggle={() => toggleStock(selectedStock.code)} onOpenArticle={openArticle} flash={flash} />
           ) : standalonePage === "daily-report" ? (
             <DailyReportPage watchlistCount={watchlist.length} onBack={() => setStandalonePage(null)} />
           ) : standalonePage === "search" ? (
-            <GlobalSearchPage onBack={() => setStandalonePage(null)} onOpenFunction={(id) => openFunction(id, true)} onContinue={(question, context) => openConversation("classic", question, context)} onOpenStock={openStock} onToggleStock={toggleStock} onOpenArticle={(id) => openArticle(id, "classic")} isAdded={(code) => watchlist.includes(code)} />
+            <GlobalSearchPage onBack={() => setStandalonePage(null)} onOpenFunction={(id) => openFunction(id, true)} onContinue={(question, context) => openConversation("classic", question, context)} onOpenStock={openStock} onToggleStock={toggleStock} onOpenArticle={openArticle} isAdded={(code) => watchlist.includes(code)} />
           ) : standalonePage === "financial-assistant" ? (
             <FinancialAssistantPage onBack={() => setStandalonePage(null)} />
           ) : standalonePage === "hot-topics" ? (
@@ -507,7 +499,7 @@ export default function Home() {
 
               <div className="ai-body">
                 {tab === "discover" && <Discover reply={reply} question={query} context={conversationContext} onAsk={ask} onBannerAction={flash} onOpenSelection={() => setTab("select")} onOpenStock={openStock} />}
-                {tab === "watch" && <Watch flash={flash} onOpenArticle={(id) => openArticle(id, "ai")} />}
+                {tab === "watch" && <Watch flash={flash} onOpenArticle={openArticle} />}
                 {tab === "select" && <SelectStock active={selectTab} setActive={setSelectTab} onAsk={ask} reply={reply} onOpenStock={openStock} onToggleStock={toggleStock} onHotTopics={() => setStandalonePage("hot-topics")} onShapeRanking={() => setStandalonePage("shape-ranking")} onShapeResult={(shape) => openShapeResult(shape, "select")} onStrategyBuilder={() => { setSelectedIndicators([]); setStandalonePage("strategy-builder"); }} onStrategyResults={(indicators) => openStrategyResults(indicators, "select")} isAdded={(code) => watchlist.includes(code)} />}
               </div>
 
@@ -944,42 +936,9 @@ function NativeFunctionPage({ id, onBack, flash }: { id: FunctionPageId; onBack:
   </div>;
 }
 
-function ArticleDetailPage({ article, onBack, onContinue }: { article: ArticleInfo; onBack: () => void; onContinue: (question: string) => void }) {
-  const [insightOpen, setInsightOpen] = useState(false);
-  const [insightPhase, setInsightPhase] = useState<"idle" | "thinking" | "streaming" | "done">("idle");
-  const [streamedInsight, setStreamedInsight] = useState("");
-
-  useEffect(() => {
-    if (!insightOpen || insightPhase !== "thinking") return;
-    const thinkingTimer = window.setTimeout(() => setInsightPhase("streaming"), 900);
-    return () => window.clearTimeout(thinkingTimer);
-  }, [insightOpen, insightPhase]);
-
-  useEffect(() => {
-    if (!insightOpen || insightPhase !== "streaming") return;
-    let index = 0;
-    const streamTimer = window.setInterval(() => {
-      index += 1;
-      setStreamedInsight(article.conclusion.slice(0, index));
-      if (index >= article.conclusion.length) {
-        window.clearInterval(streamTimer);
-        setInsightPhase("done");
-      }
-    }, 28);
-    return () => window.clearInterval(streamTimer);
-  }, [article.conclusion, insightOpen, insightPhase]);
-
-  function toggleInsight() {
-    const nextOpen = !insightOpen;
-    setInsightOpen(nextOpen);
-    if (nextOpen && insightPhase === "idle") {
-      setStreamedInsight("");
-      setInsightPhase("thinking");
-    } else if (!nextOpen && insightPhase !== "done") {
-      setStreamedInsight("");
-      setInsightPhase("idle");
-    }
-  }
+function ArticleDetailPage({ article, onBack }: { article: ArticleInfo; onBack: () => void }) {
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return <div className="standalone-page article-detail-page">
     <header className="article-head"><button type="button" onClick={onBack} aria-label="返回"><ArrowLeft size={22} aria-hidden="true" /></button><b>{article.kind}详情</b><span /></header>
@@ -987,24 +946,40 @@ function ArticleDetailPage({ article, onBack, onContinue }: { article: ArticleIn
       <span className="article-kind">{article.kind}</span>
       <h1>{article.title}</h1>
       <p className="article-meta">{article.source} · {article.time}</p>
-      <section className={`article-ai-insight ${insightOpen ? "open" : ""}`}>
-        <button className="article-ai-trigger" type="button" aria-expanded={insightOpen} onClick={toggleInsight}>
+      <section className={`article-summary ${summaryOpen ? "open" : ""}`}>
+        <button className="article-summary-trigger" type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen(open => !open)}>
           <img src={ipAssets.report} alt="" />
-          <span><b>AI解读</b><small>摘要、关键数据与核心观点</small></span>
-          <i>{insightOpen ? "⌃" : "⌄"}</i>
+          <span>文章较长，帮你快速看完要点</span>
+          <b>看要点</b>
+          {summaryOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
         </button>
-        {insightOpen && <div className="article-ai-result" aria-live="polite">
-          {insightPhase === "thinking" ? <div className="article-ai-thinking"><img src={ipAssets.loading} alt=""/><b>正在阅读并总结原文</b></div> : <>
-            <h2>核心观点</h2>
-            <p>{streamedInsight}<i className={insightPhase === "streaming" ? "stream-cursor" : ""} /></p>
-            {insightPhase === "done" && <><h2>关键要点</h2><ol>{article.points.map(point => <li key={point}>{point}</li>)}</ol><button className="article-continue" type="button" onClick={() => onContinue(`继续解读：${article.title}`)}>继续追问</button></>}
-          </>}
+        {summaryOpen && <div className="article-summary-result" aria-live="polite">
+          <header><b>看要点</b><button type="button" aria-label="收起要点" onClick={() => setSummaryOpen(false)}><ChevronUp size={17} aria-hidden="true" /></button></header>
+          <ol>{article.points.map(point => <li key={point}>{point}</li>)}</ol>
+          <small>免责声明　内容由AI生成</small>
+          <button className="article-deep-read" type="button" onClick={() => setDrawerOpen(true)}><Sparkles size={15} aria-hidden="true" />深度解读</button>
         </div>}
       </section>
-      {article.kind === "资讯" && article.followUps && <section className="article-followups"><b>你还可以问</b><div>{article.followUps.map(question => <button type="button" key={question} onClick={() => onContinue(question)}>{question}</button>)}</div></section>}
       <p className="article-lead">{article.lead}</p>
       <p>从盘面和公开信息看，相关变化正在通过行业景气、资金偏好和企业盈利预期向市场传导。投资者仍需结合后续公告、行业数据及价格变化持续验证。</p>
     </div>
+    {drawerOpen && <div className="article-insight-layer">
+      <button className="article-insight-backdrop" type="button" aria-label="关闭深度解读" onClick={() => setDrawerOpen(false)} />
+      <section className="article-insight-drawer" role="dialog" aria-modal="true" aria-label="AI深度解读">
+        <header>
+          <span><img src={ipAssets.avatar} alt="" /><b>小原AI资讯解读</b><em>AI生成</em></span>
+          <button type="button" aria-label="关闭" onClick={() => setDrawerOpen(false)}><X size={21} aria-hidden="true" /></button>
+        </header>
+        <nav><b>解读</b></nav>
+        <div className="article-insight-scroll">
+          <h2>结论</h2>
+          <p>{article.conclusion}</p>
+          <h2>解读分析</h2>
+          <ol>{article.analysis.map(item => <li key={item}>{item}</li>)}</ol>
+          <small>以上内容由AI生成，仅供参考，不构成投资建议。</small>
+        </div>
+      </section>
+    </div>}
   </div>;
 }
 

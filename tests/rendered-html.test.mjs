@@ -81,10 +81,14 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.match(page, /小原AI助手基于公开信息整理/);
   assert.match(page, /ipAssets\.avatar/);
   assert.match(page, /function ArticleDetailPage/);
-  assert.match(page, /正在阅读并总结原文/);
-  assert.match(page, /streamedInsight/);
-  assert.match(page, /继续追问/);
-  assert.doesNotMatch(page, /article-insight-sheet/);
+  assert.match(page, /文章较长，帮你快速看完要点/);
+  assert.match(page, /article-summary-result/);
+  assert.match(page, /article-deep-read/);
+  assert.match(page, /article-insight-drawer/);
+  assert.match(page, /role="dialog"/);
+  assert.match(page, /article\.analysis/);
+  assert.doesNotMatch(page, /ArticleDetailPage\(\{ article, onBack, onContinue/);
+  assert.doesNotMatch(page, /className="article-followups"|className="article-continue"/);
   assert.doesNotMatch(page, /已收藏本次解读/);
   assert.doesNotMatch(page, /感谢你的反馈|已记录反馈/);
   assert.match(page, /function NativeFunctionPage/);
