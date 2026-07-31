@@ -163,6 +163,11 @@ function matchFunctionIntent(text: string): FunctionPageId | null {
   return null;
 }
 
+function matchStockNavigationTargets(text: string): StockInfo[] {
+  if (!/打开|进入/.test(text)) return [];
+  return [stockCatalog["300033"], stockCatalog["600519"]].filter(stock => text.includes(stock.name) || text.includes(stock.code));
+}
+
 function Mascot() {
   return <div className="mascot"><img src={ipAssets.avatar} alt="小原AI助手形象" /></div>;
 }
@@ -218,6 +223,7 @@ export default function Home() {
   const [classic, setClassic] = useState(false);
   const [classicView, setClassicView] = useState<ClassicView>("home");
   const [query, setQuery] = useState("");
+  const [draft, setDraft] = useState("");
   const [reply, setReply] = useState("");
   const [toast, setToast] = useState("");
   const [voicePlayback, setVoicePlayback] = useState(true);
@@ -290,7 +296,9 @@ export default function Home() {
     }
     if (context !== undefined) setConversationContext(context);
     setQuery(text);
-    if (text.includes("压力位")) {
+    if (matchStockNavigationTargets(text).length) {
+      setReply("已识别你想访问的股票页面，请点击下方按钮进入。");
+    } else if (text.includes("压力位")) {
       setReply("上证指数短线压力位可重点观察 4200 点附近。该结论基于近期高点与成交密集区，仅供参考。");
     } else if (text.includes("选股") || text.includes("ROE") || text.includes("自定义条件")) {
       setReply("已理解你的定制条件：近三年ROE保持在15%以上、现金流稳定，并优先关注当前有资金关注的行业。我已调用选股能力生成匹配结果。");
@@ -307,7 +315,10 @@ export default function Home() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (query.trim()) ask(query.trim());
+    const text = draft.trim();
+    if (!text) return;
+    ask(text);
+    setDraft("");
   }
 
   function switchScene(next: Tab) {
@@ -320,6 +331,7 @@ export default function Home() {
     setTab(next);
     setReply("");
     setQuery("");
+    setDraft("");
     setConversationContext(null);
   }
 
@@ -454,7 +466,7 @@ export default function Home() {
             <NativeFunctionPage id={standalonePage} onBack={() => setStandalonePage(functionBackToSearch ? "search" : null)} flash={flash} />
           ) : classic ? (
             classicChatOpen
-              ? <ClassicChatPage reply={reply} question={query} context={conversationContext} onAsk={ask} onClose={() => setClassicChatOpen(false)} />
+              ? <ClassicChatPage reply={reply} question={query} context={conversationContext} onAsk={ask} onOpenStock={openStock} onClose={() => setClassicChatOpen(false)} />
               : <ClassicScreen view={classicView} onView={setClassicView} onBack={() => setClassic(false)} onAssistant={() => setClassicChatOpen(true)} flash={flash} onSearch={() => setStandalonePage("search")} onDailyReport={() => setStandalonePage("daily-report")} onHotTopics={() => setStandalonePage("hot-topics")} onFinancialAssistant={() => setStandalonePage("financial-assistant")} onOpenStock={openStock} onToggleStock={toggleStock} watchlist={watchlist} />
           ) : aiUtilityView ? (
             <>
@@ -494,7 +506,7 @@ export default function Home() {
               </header>
 
               <div className="ai-body">
-                {tab === "discover" && <Discover reply={reply} question={query} context={conversationContext} onAsk={ask} onBannerAction={flash} onOpenSelection={() => setTab("select")} />}
+                {tab === "discover" && <Discover reply={reply} question={query} context={conversationContext} onAsk={ask} onBannerAction={flash} onOpenSelection={() => setTab("select")} onOpenStock={openStock} />}
                 {tab === "watch" && <Watch flash={flash} onOpenArticle={(id) => openArticle(id, "ai")} />}
                 {tab === "select" && <SelectStock active={selectTab} setActive={setSelectTab} onAsk={ask} reply={reply} onOpenStock={openStock} onToggleStock={toggleStock} onHotTopics={() => setStandalonePage("hot-topics")} onShapeRanking={() => setStandalonePage("shape-ranking")} onShapeResult={(shape) => openShapeResult(shape, "select")} onStrategyBuilder={() => { setSelectedIndicators([]); setStandalonePage("strategy-builder"); }} onStrategyResults={(indicators) => openStrategyResults(indicators, "select")} isAdded={(code) => watchlist.includes(code)} />}
               </div>
@@ -505,7 +517,7 @@ export default function Home() {
                 </button> : <>
                   {modeMenuOpen && <div className="reasoning-menu" role="menu" aria-label="选择推理模式">{reasoningModes.map((mode) => { const ModeIcon = mode.icon; return <button type="button" role="menuitemradio" aria-checked={reasoningMode===mode.id} className={reasoningMode===mode.id?"active":""} key={mode.id} onClick={() => { setReasoningMode(mode.id); setModeMenuOpen(false); flash(`已切换为${mode.label}`); }}><i><ModeIcon size={17} aria-hidden="true" /></i><span><b>{mode.label}</b><small>{mode.description}</small></span></button>; })}</div>}
                   <div className="thinking"><button type="button" aria-expanded={modeMenuOpen} onClick={() => setModeMenuOpen(v=>!v)}><Sparkles size={14} aria-hidden="true" />{reasoningModes.find(mode=>mode.id===reasoningMode)?.label}<ChevronDown className={modeMenuOpen ? "mode-chevron open" : "mode-chevron"} size={14} aria-hidden="true" /></button></div>
-                  <div className="input-row"><button type="button" aria-label="切换语音输入" onClick={() => { setModeMenuOpen(false); setVoiceListening(true); }}><Mic size={18} aria-hidden="true" /></button><input aria-label="向小原AI助手提问" value={query} onChange={e => setQuery(e.target.value)} placeholder="在这里输入想说的话.."/><button type={query.trim() ? "submit" : "button"} aria-label={query.trim() ? "发送问题" : "展开快捷入口"} aria-expanded={query.trim() ? undefined : quickDrawerOpen} onClick={query.trim() ? undefined : () => { setModeMenuOpen(false); setQuickDrawerOpen(true); }}>{query.trim() ? <Send size={18} aria-hidden="true" /> : <Plus size={20} aria-hidden="true" />}</button></div>
+                  <div className="input-row"><button type="button" aria-label="切换语音输入" onClick={() => { setModeMenuOpen(false); setVoiceListening(true); }}><Mic size={18} aria-hidden="true" /></button><input aria-label="向小原AI助手提问" value={draft} onChange={e => setDraft(e.target.value)} placeholder="在这里输入想说的话.."/><button type={draft.trim() ? "submit" : "button"} aria-label={draft.trim() ? "发送问题" : "展开快捷入口"} aria-expanded={draft.trim() ? undefined : quickDrawerOpen} onClick={draft.trim() ? undefined : () => { setModeMenuOpen(false); setQuickDrawerOpen(true); }}>{draft.trim() ? <Send size={18} aria-hidden="true" /> : <Plus size={20} aria-hidden="true" />}</button></div>
                 </>}
               </form>
               <BottomNav active="ai" aiMode onNavigate={(next) => { if (next !== "home") setAiUtilityView(next); }} />
@@ -595,10 +607,19 @@ function ConversationContextCard({ context, onOpenSources }: { context: Analysis
   </section>;
 }
 
-function Discover({ reply, question, context, onAsk, onBannerAction = () => undefined, onOpenSelection = () => undefined }: { reply: string; question?: string; context?: AnalysisContext | null; onAsk: (text: string) => void; onBannerAction?: (message: string) => void; onOpenSelection?: () => void }) {
+function Discover({ reply, question, context, onAsk, onBannerAction = () => undefined, onOpenSelection = () => undefined, onOpenStock = () => undefined }: { reply: string; question?: string; context?: AnalysisContext | null; onAsk: (text: string) => void; onBannerAction?: (message: string) => void; onOpenSelection?: () => void; onOpenStock?: (code: string) => void }) {
   const [sourceOpen, setSourceOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const isSelectionConversation = Boolean(question && /选股|ROE|自定义条件/.test(question));
-  return <div className="discover-screen screen-scroll">
+  const navigationTargets = question ? matchStockNavigationTargets(question) : [];
+  useEffect(() => {
+    if (!reply) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [question, reply]);
+  return <div className="discover-screen screen-scroll" ref={scrollRef}>
     <DiscoverBanner onAction={onBannerAction} />
     <div className="ip-row"><Mascot /><div><b>Hi,我是小原AI助手，随时与您在线交流~</b></div></div>
     <div className="welcome-card">
@@ -607,7 +628,7 @@ function Discover({ reply, question, context, onAsk, onBannerAction = () => unde
     </div>
     <div className="prompt-chips discover-prompts"><button onClick={() => onAsk("大盘压力位在哪")}>大盘压力位在哪</button><button onClick={() => onAsk("市场资金动向")}>市场资金动向</button><button onClick={() => onAsk("量价齐升的板块能否承接主线地位")}>量价齐升的板块能否承接主线地位</button></div>
     {context && <ConversationContextCard context={context} onOpenSources={() => setSourceOpen(true)} />}
-    {reply && <>{question && <div className="conversation-question">{question}</div>}<div className="assistant-reply"><div><Mascot /><b>{isSelectionConversation ? "AI定制选股" : "小原AI助手"}</b><small>AI生成 · 已保留对话上下文</small></div><p>{reply}</p>{isSelectionConversation ? <div className="selection-result-preview"><span><b>12</b>只匹配</span><span><b>ROE &gt; 15%</b>核心条件</span><button type="button" onClick={onOpenSelection}>查看选股结果 〉</button></div> : <button className="source-link" type="button" onClick={() => setSourceOpen(true)}>查看数据来源 <sup>1</sup></button>}</div></>}
+    {reply && <>{question && <div className="conversation-question">{question}</div>}<div className={`assistant-reply ${navigationTargets.length ? "function-navigation-reply" : ""}`}><div><Mascot /><b>{isSelectionConversation ? "AI定制选股" : "小原AI助手"}</b><small>{navigationTargets.length ? "已完成功能识别" : "AI生成 · 已保留对话上下文"}</small></div><p>{reply}</p>{navigationTargets.length ? <div className={`function-jump-actions ${navigationTargets.length > 1 ? "multiple" : ""}`}>{navigationTargets.map(stock => <button type="button" key={stock.code} onClick={() => onOpenStock(stock.code)} aria-label={`打开${stock.name}股票详情`}><ChartNoAxesCombined size={17} aria-hidden="true" /><span><b>打开{stock.name}</b><small>{stock.market ?? (stock.code.startsWith("3") ? "深A" : "沪A")} · {stock.code}</small></span><ChevronRight size={16} aria-hidden="true" /></button>)}</div> : isSelectionConversation ? <div className="selection-result-preview"><span><b>12</b>只匹配</span><span><b>ROE &gt; 15%</b>核心条件</span><button type="button" onClick={onOpenSelection}>查看选股结果 〉</button></div> : <button className="source-link" type="button" onClick={() => setSourceOpen(true)}>查看数据来源 <sup>1</sup></button>}{navigationTargets.length > 0 && <small className="function-jump-disclaimer">页面内数据为原型演示，不构成投资建议。</small>}</div></>}
     {!reply && <p className="ai-disclaimer">以上内容由AI生成，不代表投资立场，且无法保证所有生成内容准确 <span>⌄</span></p>}
     {sourceOpen && <SourceDrawer records={marketDataSources} onClose={() => setSourceOpen(false)} />}
   </div>;
@@ -706,11 +727,11 @@ function ContextAssistant({ view, question, onQuestion, onClose, onInteract, onE
   </div>;
 }
 
-function ClassicChatPage({ reply, question, context, onAsk, onClose }: { reply: string; question: string; context: AnalysisContext | null; onAsk: (question: string) => void; onClose: () => void }) {
+function ClassicChatPage({ reply, question, context, onAsk, onOpenStock, onClose }: { reply: string; question: string; context: AnalysisContext | null; onAsk: (question: string) => void; onOpenStock: (code: string) => void; onClose: () => void }) {
   const [draft, setDraft] = useState("");
   return <div className="classic-chat-page">
     <header><button type="button" onClick={onClose} aria-label="返回经典页面"><ArrowLeft size={22} aria-hidden="true" /></button><b>发现</b><span>小原AI助手</span></header>
-    <div className="classic-chat-body"><Discover reply={reply} question={question} context={context} onAsk={onAsk} /></div>
+    <div className="classic-chat-body"><Discover reply={reply} question={question} context={context} onAsk={onAsk} onOpenStock={onOpenStock} /></div>
     <form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) { onAsk(draft.trim()); setDraft(""); } }}><button type="button" aria-label="语音提问"><i className="mic-icon" /></button><input value={draft} onChange={event => setDraft(event.target.value)} placeholder="向小原AI助手提问" aria-label="向小原AI助手提问"/><button type="submit">＋</button></form>
   </div>;
 }

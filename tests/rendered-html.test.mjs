@@ -59,6 +59,12 @@ test("keeps the prototype interactive, scoped, and accessible", async () => {
   assert.match(page, /searchableFeatures/);
   assert.match(page, /来自经典版全局搜索/);
   assert.match(page, /量价齐升的板块能否承接主线地位/);
+  assert.match(page, /function matchStockNavigationTargets/);
+  assert.match(page, /stockCatalog\["300033"\].*stockCatalog\["600519"\]/);
+  assert.match(page, /aria-label=\{`打开\$\{stock\.name\}股票详情`\}/);
+  assert.match(page, /function-jump-actions/);
+  assert.match(page, /已完成功能识别/);
+  assert.match(page, /scrollRef\.current\.scrollTop = scrollRef\.current\.scrollHeight/);
   assert.doesNotMatch(page, /▣ AI解读/);
   assert.match(page, /function SourceDrawer/);
   assert.match(page, /查看数据来源/);
